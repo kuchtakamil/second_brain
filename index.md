@@ -2,6 +2,11 @@
 
 ## Python
 
+- [zastosowania-functools](Python/zastosowania-functools.md)
+- [dekoratory-lru-cache-i-cache](Python/dekoratory-lru-cache-i-cache.md)
+- [python-interview-cheatsheet](Python/python-interview-cheatsheet.md)
+- [catastrophic-cancellation-floating-point](Python/catastrophic-cancellation-floating-point.md)
+- [PyTest_Mockowanie](Python/PyTest_Mockowanie.md)
 - [deep-copy-vs-shallow-copy](Python/deep-copy-vs-shallow-copy.md)
 - [konstruktory-vs-literaly-dict-list-set](Python/konstruktory-vs-literaly-dict-list-set.md)
 - [krotki-vs-listy-pamiec-i-wydajnosc](Python/krotki-vs-listy-pamiec-i-wydajnosc.md)
@@ -9,7 +14,6 @@
 - [kiedy-uzywac-dict-list-a-kiedy-dict-list](Python/kiedy-uzywac-dict-list-a-kiedy-dict-list.md)
 - [python-wycieki-pamieci](Python/python-wycieki-pamieci.md)
 - [typy-danych-w-python-i-zuzycie-pamieci](Python/typy-danych-w-python-i-zuzycie-pamieci.md)
-- [PyTest_Mockowanie](Python/PyTest_Mockowanie.md)
 - [przekształcenie-kodu-i-importy](Python/przekszta%C5%82cenie-kodu-i-importy.md)
 - [wyjaśnienie-linijki-pythona](Python/wyja%C5%9Bnienie-linijki-pythona.md)
 - [uzycie-operatorow-porownania-i-przypisania](Python/uzycie-operatorow-porownania-i-przypisania.md)
@@ -145,12 +149,22 @@
 - [zamiana-placeholdera-w-pythonie](Python/zamiana-placeholdera-w-pythonie.md)
 - [pydantic-przykłady-i-zastosowania](Python/pydantic-przyk%C5%82ady-i-zastosowania.md)
 
+### Algo
+
+- [hash-map-sum-problems](Python/Algo/hash-map-sum-problems.md)
+- [sliding-window](Python/Algo/sliding-window.md)
+- [tablice-dwuwymiarowe-w-pythonie](Python/Algo/tablice-dwuwymiarowe-w-pythonie.md)
+- [implementacje-binary-search](Python/Algo/implementacje-binary-search.md)
+- [implementacje-silni](Python/Algo/implementacje-silni.md)
+- [implementacje-ciagu-fibonacci](Python/Algo/implementacje-ciagu-fibonacci.md)
+
 ### FastAPI
 
 - [15-Essential-Best-Practices-for-FastAPI-Developers](Python/FastAPI/15-Essential-Best-Practices-for-FastAPI-Developers.md)
 
 ## AI
 
+- [repozytorium-datasetow-oraz-wersjonowanie-danych](AI/repozytorium-datasetow-oraz-wersjonowanie-danych.md)
 - [structured-output-z-llm](AI/structured-output-z-llm.md)
 - [llm-guardrails](AI/llm-guardrails.md)
 - [bezpieczenstwo-danych-kontrola-dostepu-governance-ai](AI/bezpieczenstwo-danych-kontrola-dostepu-governance-ai.md)
@@ -159,7 +173,6 @@
 - [automatyzacja-wdrozen-modeli-llm](AI/automatyzacja-wdrozen-modeli-llm.md)
 - [dobor-podejsc-ml-llm-pod-konkretne-przypadki-uzycia](AI/dobor-podejsc-ml-llm-pod-konkretne-przypadki-uzycia.md)
 - [benchmarki-ewaluacja-koszt-skalowalnosc-ml-ai](AI/benchmarki-ewaluacja-koszt-skalowalnosc-ml-ai.md)
-- [repozytorium-datasetow-oraz-wersjonowanie-danych](AI/repozytorium-datasetow-oraz-wersjonowanie-danych.md)
 - [budowa-pipeline-danych-i-praca-w-skali-produkcyjnej](AI/budowa-pipeline-danych-i-praca-w-skali-produkcyjnej.md)
 - [jak-ai-engineer-wykorzystuje-huggingface](AI/jak-ai-engineer-wykorzystuje-huggingface.md)
 - [opisz-temat-llmy-a-metryki-do-ich-oceniania](AI/opisz-temat-llmy-a-metryki-do-ich-oceniania.md)
@@ -179,7 +192,6 @@
 - [wyjaśnij-różnicę-między-metrykami-prompt-processing-a-token-generation](AI/wyja%C5%9Bnij-r%C3%B3%C5%BCnic%C4%99-mi%C4%99dzy-metrykami-prompt-processing-a-token-generation.md)
 - [o-co-chodzi-w-pojęciach-generative-models-gans-vaes-nlp-techniques-for-text-gene](AI/o-co-chodzi-w-poj%C4%99ciach-generative-models-gans-vaes-nlp-techniques-for-text-gene.md)
 - [lepiej-byłoby-napisać-o-tym-że-rozwijam-samodzielnie-swoje-projekty-przedstawion](AI/lepiej-by%C5%82oby-napisa%C4%87-o-tym-%C5%BCe-rozwijam-samodzielnie-swoje-projekty-przedstawion.md)
-- [jak-można-porównać-wydajność-procesora-m4-z-40-rdzeniami-gpu-do-karty-rtx4080-po](AI/jak-mo%C5%BCna-por%C3%B3wna%C4%87-wydajno%C5%9B%C4%87-procesora-m4-z-40-rdzeniami-gpu-do-karty-rtx4080-po.md)
 - [wymyśl-użycie-lokalnego-llm-pod-kątem-ulepszenia-jakości-życia-osoby-chorej-prze](AI/wymy%C5%9Bl-u%C5%BCycie-lokalnego-llm-pod-k%C4%85tem-ulepszenia-jako%C5%9Bci-%C5%BCycia-osoby-chorej-prze.md)
 - [zrobiłem-prosty-czat-oparty-na-gpt-oss-120-czat-ma-za-zadanie-odgrywać-mojego-di](AI/zrobi%C5%82em-prosty-czat-oparty-na-gpt-oss-120-czat-ma-za-zadanie-odgrywa%C4%87-mojego-di.md)
 - [wiem-na-czym-polega-embedding-i-wektorowe-bazy-ale-bez-szczegółów-jeśli-chodzi-o](AI/wiem-na-czym-polega-embedding-i-wektorowe-bazy-ale-bez-szczeg%C3%B3%C5%82%C3%B3w-je%C5%9Bli-chodzi-o.md)

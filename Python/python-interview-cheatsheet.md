@@ -620,16 +620,37 @@ s2.push("hello")
 ```python
 import itertools as it
 
+# Łączy wiele iterables w jeden ciąg
 list(it.chain([1,2],[3,4]))            # [1,2,3,4]
+
+# Działa jak chain, ale przyjmuje jeden iterable (np. listę list) - "spłaszcza" strukturę
 list(it.chain.from_iterable([[1,2],[3]])) # [1,2,3]
+
+# Zwraca wycinek (slice) z iteratora (tu: 5 pierwszych elementów)
 list(it.islice(range(100), 5))         # [0,1,2,3,4]
+
+# Iloczyn kartezjański podanych iterables (każdy z każdym)
 list(it.product([1,2],["a","b"]))      # [(1,'a'),(1,'b'),(2,'a'),(2,'b')]
+
+# Permutacje o długości r (kolejność elementów ma znaczenie)
 list(it.permutations([1,2,3], 2))      # [(1,2),(1,3),(2,1),...]
+
+# Kombinacje o długości r (kolejność elementów nie ma znaczenia)
 list(it.combinations([1,2,3], 2))      # [(1,2),(1,3),(2,3)]
+
+# Skumulowane wyniki funkcji (domyślnie sumuje) dla kolejnych elementów
 list(it.accumulate([1,2,3,4]))         # [1,3,6,10]
+
+# Powtarza podany element wskazaną liczbę razy
 list(it.repeat(0, 3))                  # [0,0,0]
+
+# Pobiera elementy dopóki funkcja zwraca True, przerywa iterację przy pierwszym False
 list(it.takewhile(lambda x: x<3, [1,2,3,4]))  # [1,2]
+
+# Odrzuca elementy dopóki funkcja zwraca True, potem zwraca całą resztę (nawet jeśli False)
 list(it.dropwhile(lambda x: x<3, [1,2,3,4]))  # [3,4]
+
+# Podobnie jak zip(), ale wyrównuje do najdłuższego iterable (uzupełnia wartością fillvalue)
 list(it.zip_longest([1,2],[3], fillvalue=0))   # [(1,3),(2,0)]
 ```
 
@@ -648,7 +669,8 @@ def power(base, exp): return base ** exp
 square = partial(power, exp=2)
 square(5)   # 25
 
-# lru_cache – memoizacja
+# lru_cache – memoizacja (zapamiętuje wyniki funkcji dla danych argumentów).
+# maxsize ogranicza liczbę zapamiętanych wyników (usuwa najdawniej używane - LRU).
 @lru_cache(maxsize=128)
 def fib(n):
     if n < 2: return n
@@ -656,7 +678,8 @@ def fib(n):
 
 fib.cache_info()   # CacheInfo(hits=..., misses=..., ...)
 
-# cache (Python 3.9+ – unbounded)
+# cache (Python 3.9+) – uproszczona wersja lru_cache bez limitu zapamiętanych wyników (unbounded).
+# Używaj ostrożnie, jeśli liczba unikalnych wywołań może wyczerpać dostępną pamięć RAM.
 @cache
 def fib2(n): ...
 ```
@@ -732,3 +755,147 @@ lst[0].append(99)
 # b[0] → [1,2,99]  (shallow – te same wewnętrzne listy!)
 # c[0] → [1,2]     (deep – niezależna kopia)
 ```
+
+---
+
+## 26. Testowanie – pytest
+
+```bash
+pip install pytest pytest-cov
+pytest                  # uruchamia wszystkie testy
+pytest -v               # verbose
+pytest -k "login"       # tylko testy zawierające "login" w nazwie
+pytest -x               # zatrzymaj po pierwszym błędzie
+pytest --cov=src        # pokrycie kodu
+```
+
+```python
+# test_math.py  –  plik musi zaczynać się od test_
+
+def add(a, b): return a + b
+
+# --- podstawowy test ---
+def test_add():
+    assert add(2, 3) == 5
+
+# --- oczekiwany wyjątek ---
+import pytest
+
+def test_divide_by_zero():
+    with pytest.raises(ZeroDivisionError):
+        1 / 0
+
+def test_raises_with_message():
+    with pytest.raises(ValueError, match="invalid"):
+        raise ValueError("invalid input")
+
+# --- parametrize – wiele przypadków w jednym teście ---
+@pytest.mark.parametrize("a, b, expected", [
+    (1, 2, 3),
+    (0, 0, 0),
+    (-1, 1, 0),
+])
+def test_add_param(a, b, expected):
+    assert add(a, b) == expected
+
+# --- fixture – wspólne dane / zasoby ---
+@pytest.fixture
+def sample_list():
+    return [1, 2, 3]
+
+def test_length(sample_list):
+    assert len(sample_list) == 3
+
+# fixture z setup i teardown
+@pytest.fixture
+def db_connection():
+    conn = {"connected": True}   # setup
+    yield conn
+    conn["connected"] = False    # teardown (po teście)
+
+# fixture o szerszym scope (raz na moduł/sesję)
+@pytest.fixture(scope="module")
+def heavy_resource():
+    return {"data": list(range(1000))}
+
+# --- marks ---
+@pytest.mark.skip(reason="not implemented yet")
+def test_pending(): ...
+
+@pytest.mark.skipif(condition=True, reason="skipped on CI")
+def test_ci(): ...
+
+@pytest.mark.xfail(reason="known bug")
+def test_known_bug():
+    assert 1 == 2
+```
+
+> Konwencja: pliki `test_*.py` lub `*_test.py`, funkcje/klasy/metody z prefiksem `test_` / `Test`.
+
+---
+
+## 27. Mockowanie – `unittest.mock` + `pytest-mock`
+
+```bash
+pip install pytest-mock   # dostarcza fixture `mocker`
+```
+
+```python
+from unittest.mock import MagicMock, patch, call
+
+# --- MagicMock – podstawowy mock ---
+mock = MagicMock()
+mock.method(1, 2)
+mock.method.assert_called_once_with(1, 2)
+mock.method.call_count          # 1
+mock.method.return_value = 42   # ustawianie wartości zwracanej
+
+# --- patch – zamiana obiektu na czas testu ---
+# jako dekorator
+from unittest.mock import patch
+
+@patch("mymodule.requests.get")
+def test_api(mock_get):
+    mock_get.return_value.status_code = 200
+    mock_get.return_value.json.return_value = {"ok": True}
+    # ... wywołaj kod który używa requests.get
+
+# jako context manager
+def test_open():
+    with patch("builtins.open", MagicMock(return_value=...)):
+        pass
+
+# --- pytest-mock (mocker fixture) – czystszy styl ---
+def test_service(mocker):
+    mock_db = mocker.patch("myapp.db.get_user")
+    mock_db.return_value = {"id": 1, "name": "Alice"}
+
+    result = get_user_name(1)
+    assert result == "Alice"
+    mock_db.assert_called_once_with(1)
+
+# --- side_effect – wyjątek lub sekwencja ---
+mock = MagicMock()
+mock.side_effect = ValueError("boom")       # rzuca wyjątek
+mock.side_effect = [1, 2, 3]               # kolejne wywołania zwracają kolejne wartości
+mock.side_effect = lambda x: x * 2         # własna funkcja
+
+# --- spy – prawdziwy obiekt + śledzenie wywołań ---
+def test_spy(mocker):
+    spy = mocker.spy(SomeClass, "some_method")
+    obj = SomeClass()
+    obj.some_method(42)
+    spy.assert_called_once_with(obj, 42)
+
+# --- assert helpers ---
+mock.assert_called()                        # wywołany co najmniej raz
+mock.assert_called_once()                   # dokładnie raz
+mock.assert_called_with(1, key="val")       # ostatnie wywołanie
+mock.assert_any_call(1)                     # którekolwiek wywołanie
+mock.assert_not_called()
+mock.call_args                              # ostatnie argumenty
+mock.call_args_list                         # lista wszystkich wywołań
+```
+
+> Zasada: mockuj **na poziomie modułu który importuje**, nie tam gdzie jest zdefiniowane.
+> `patch("myapp.service.requests.get")` → nie `patch("requests.get")`.
