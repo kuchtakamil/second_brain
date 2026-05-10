@@ -1,8 +1,4 @@
-# Python Interview Cheatsheet
-
-> Zwięzła lista zagadnień na interview Python developera – głównie przykłady.
-
----
+# Python Cheatsheet
 
 ## 1. Sortowanie struktur danych
 
@@ -233,9 +229,14 @@ c = Counter("aabbcc")           # Counter({'a':2,'b':2,'c':2})
 c = Counter([1,1,2,3,3,3])     # Counter({3:3, 1:2, 2:1})
 c = Counter({"a":3,"b":1})
 
-c["a"]          # 2
-c.most_common(2)# [('a',2),('b',2)]
-c.total()       # suma wszystkich (Python 3.10+)
+c["a"]          # 3
+
+print(c)                  # Zwróci: Counter({'a': 3, 'b': 1})
+print(list(c.elements())) # Zwróci: ['a', 'a', 'a', 'b']
+print(c.most_common(1))   # Zwróci: [('a', 3)]
+print(c.total())          # suma wszystkich, Zwróci: 4
+
+c.most_common(2)# [('a',3),('b',1)]
 
 # arytmetyka
 c1 = Counter("aab")
@@ -554,6 +555,13 @@ class Point:
     y: float
     z: float = 0.0
     tags: list = field(default_factory=list)
+
+# __init__
+# __repr__
+# __eq__
+# __order__ (opt)
+# __hash__ (opt)
+# __match_args__ (opt)
 ```
 
 ---
@@ -688,14 +696,14 @@ def fib2(n): ...
 
 ## 23. Złożoność (Big O) – kluczowe struktury
 
-| Operacja              | list    | dict / set | deque  |
-|-----------------------|---------|------------|--------|
-| Access by index       | O(1)    | –          | O(n)   |
-| Search (in)           | O(n)    | O(1) avg   | O(n)   |
-| Insert na końcu       | O(1)    | O(1) avg   | O(1)   |
-| Insert na początku    | O(n)    | –          | O(1)   |
-| Delete by value       | O(n)    | O(1) avg   | O(n)   |
-| Sort                  | O(n log n) | –       | –      |
+| Operacja              | list       | dict / set | deque  |
+|-----------------------|------------|------------|--------|
+| Access by index       | O(1)       | –          | O(n)   |
+| Search (in)           | O(n)       | O(1) avg   | O(n)   |
+| Insert na końcu       | O(1)       | O(1) avg   | O(1)   |
+| Insert na początku    | O(n)       | –          | O(1)   |
+| Delete by value       | O(n)       | O(1) avg   | O(n)   |
+| Sort                  | O(n log n) | –          | –      |
 
 ---
 
@@ -899,3 +907,222 @@ mock.call_args_list                         # lista wszystkich wywołań
 
 > Zasada: mockuj **na poziomie modułu który importuje**, nie tam gdzie jest zdefiniowane.
 > `patch("myapp.service.requests.get")` → nie `patch("requests.get")`.
+
+---
+
+## 28. GIL (Global Interpreter Lock)
+
+- **Czym jest GIL?** W CPythonie (standardowej implementacji Pythona) jest to mechanizm blokady (mutex), który pozwala tylko jednemu wątkowi na wykonywanie bajtkodu Pythona w danym momencie.
+- **Konsekwencje:** Wielowątkowość **nie przyspieszy** programów silnie obciążających procesor (**CPU-bound**), ponieważ wątki nie mogą działać równolegle na wielu rdzeniach CPU.
+- **Do czego używamy wątków?** Do zadań oczekujących na wejście/wyjście (**I/O-bound**), takich jak zapytania sieciowe, odczyt/zapis dysku, operacje na bazie danych. Podczas oczekiwania na I/O wątek zwalnia GIL, pozwalając innym wątkom na działanie.
+- **Jak ominąć GIL (dla CPU-bound)?** Używając modułu `multiprocessing` (procesy mają własną pamięć i kopię interpretera) lub zewnętrznych bibliotek w C/C++ (np. NumPy), które potrafią zwalniać GIL podczas szybkich obliczeń na tablicach.
+
+---
+
+## 29. Moduł `threading` – tworzenie i uruchamianie wątków
+
+```python
+import threading
+import time
+
+def worker(name, delay):
+    print(f"Wątek {name} startuje")
+    time.sleep(delay)
+    print(f"Wątek {name} kończy")
+
+# 1. Tworzenie instancji wątków
+t1 = threading.Thread(target=worker, args=("A", 2))
+t2 = threading.Thread(target=worker, args=("B", 1))
+
+# 2. Uruchomienie (wątki startują i kontynuują asynchronicznie)
+t1.start()
+t2.start()
+
+# 3. Oczekiwanie na zakończenie (blokuje główny program dopóki wątki żyją)
+t1.join()
+t2.join()
+
+# Wątki w tle (Daemon threads) - giną automatycznie wraz z głównym programem
+# t_daemon = threading.Thread(target=worker, args=("Daemon", 5), daemon=True)
+# t_daemon.start()
+```
+
+---
+
+## 30. Synchronizacja wątków i Race Conditions
+
+Dostęp do współdzielonych zmiennych globalnych/w pamięci w środowisku wielowątkowym może skutkować błędami, gdy dwa wątki modyfikują ten sam zasób jednocześnie (**Race Condition**). Wykorzystuje się mechanizmy synchronizacji tj. `Lock`.
+
+```python
+import threading
+
+counter = 0
+lock = threading.Lock()
+
+def increment():
+    global counter
+    for _ in range(100000):
+        # Ciekawostka: przez GIL samo dopisanie do listy (lst.append()) jest atomowe,
+        # jednak operacje read-modify-write (x += 1) NIE SĄ atomowe.
+        
+        # Bez locka wątki mogłyby utracić inkrementacje:
+        with lock:  # to samo co lock.acquire() i docelowo lock.release()
+            counter += 1
+
+threads = [threading.Thread(target=increment) for _ in range(5)]
+for t in threads: t.start()
+for t in threads: t.join()
+
+print(counter) # Z Lockiem: zawsze równe 500000. Bez niego: rozbieżne wyniki.
+
+# Inne przydatne mechanizmy synchronizacji (z threading):
+# RLock (Reentrant Lock) - wątek może ponownie nałożyć ten sam zamek bez zakleszczenia
+# Semaphore - dopuszcza ustaloną maksymalną liczbę wątków naraz
+# Event - prosta flaga do powiadamiania między wątkami (wait, set, clear)
+```
+
+---
+
+## 31. `concurrent.futures` – Pule Wątków (ThreadPoolExecutor)
+
+O wiele nowocześniejszy, bezpieczniejszy i najbardziej zalecany interfejs dla uruchamiania zadań asynchronicznie, ograniczający "ręczne" pisanie pętli `.start()` i `.join()`.
+
+```python
+import concurrent.futures
+import time
+
+def task(n):
+    time.sleep(0.5)
+    return n * 10
+
+# ThreadPoolExecutor dla zadań wejścia-wyjścia (I/O)
+# Dla CPU-heavy -> zmiana słowa na ProcessPoolExecutor
+with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    
+    numbers = [1, 2, 3, 4, 5]
+    
+    # --- Podejście 1: executor.map ---
+    # Zwraca iterator, pod którym kryją się wyniki W TAKIEJ KOLEJNOŚCI w jakiej wysłaliśmy argumenty.
+    # Wątki robią robotę asynchronicznie i czekamy.
+    results = executor.map(task, numbers)
+    print(list(results))  # [10, 20, 30, 40, 50]
+    
+
+    # --- Podejście 2: executor.submit (bardziej granulowane) ---
+    # Zwraca obiekty typu Future, które reprezentują wykonanie funkcji w przyszłości.
+    futures = [executor.submit(task, num) for num in numbers]
+    
+    # as_completed zwraca iterator podającym Futures w miarę, GDY SĄ gotowe 
+    # (nie zachowuje kolejności argumentów, oddaje "kto pierwszy ten lepszy")
+    for future in concurrent.futures.as_completed(futures):
+        try:
+            result = future.result()  # metoda blokująca, czeka do zwrotu lub odczytuje natychmiast
+            print(f"Wynik z thread poola: {result}")
+        except Exception as exc:
+            print(f"Zadanie się wyrzuciło błędem: {exc}")
+```
+
+---
+
+## 32. `asyncio` – Programowanie asynchroniczne (Single-thread I/O)
+
+`asyncio` pozwala na wykonywanie asynchronicznego kodu (w obrębie **jednego wątku**) przy pomocy pętli zdarzeń (Event Loop). Jest to potężne rozwiązanie dla zadań mocno uzależnionych od wejścia/wyjścia (I/O-bound), takich jak tysiące jednoczesnych połączeń sieciowych, gdzie narzut pamięciowy i tzw. *context switching* dla tradycyjnych wątków systemu operacyjnego byłby zbyt duży.
+
+- Współprogramy (**Coroutines**) definiuje się za pomocą `async def`.
+- Samo wywołanie takiej funkcji nic nie oblicza – zwraca niedziałający obiekt coroutine. Aby go uruchomić i poczekać na wynik, potrzebujemy `await` (lub `asyncio.run()`).
+- Operator `await` **zwraca sterowanie do Event Loop**, co pozwala innym zadaniom w tym samym wątku na wykonanie w czasie, gdy to konkretne (np. pobieranie SQL) czeka na zwrot z dysku lub sieci.
+
+```python
+import asyncio
+import time
+
+async def fetch_data(task_id, delay):
+    print(f"Zadanie {task_id}: Rozpoczynam (czekam {delay}s)...")
+    
+    # asyncio.sleep reprezentuje asynchroniczną operację wejścia/wyjścia.
+    # Użycie `time.sleep(delay)` całkowicie zablokowałoby całą pętlę!
+    await asyncio.sleep(delay)
+    
+    print(f"Zadanie {task_id}: Zakończono!")
+    return {"id": task_id, "data": "sukces"}
+
+async def main():
+    start = time.time()
+    
+    # Uruchamiamy współprogramy. asyncio.gather() przyjmuje wiele coroutines,
+    # rejestruje je do wykonania w Event Loop i zwraca wyniki w liście,
+    # gdy wszystkie się zakończą.
+    results = await asyncio.gather(
+        fetch_data(1, 2),
+        fetch_data(2, 1),
+        fetch_data(3, 3)
+    )
+    
+    # Pomimo 3 zadań trwających 2s, 1s, i 3s – całkowity czas działania
+    # to około 3 sekundy (wynika z najdłuższego sleepa), nie 6 sekund.
+    print(f"\nWyniki: {results}")
+    print(f"Całkowity czas: {time.time() - start:.2f}s")
+
+
+# Rozpoczyna całkowicie od zera Event Loop, wykonuje główną funkcję i zamyka pętlę.
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+> **Podsumowując – Kiedy używać czego?**
+>
+> - **Silne obciążenie procesora (np. AI, obróbka wideo):** `multiprocessing` / `ProcessPoolExecutor` (aby uciec z GIL na inne rdzenie).
+> - **Operacje I/O z użyciem starych/blokujących bibliotek (np. `requests`):** `threading` / `ThreadPoolExecutor`.
+> - **Operacje I/O asynchroniczne na ogromną skalę (np. WebSockets, chat w locie, `aiohttp`):** `asyncio`.
+
+---
+
+## 33. Pydantic V2
+
+Pydantic V2 to popularna biblioteka do walidacji danych i zarządzania ustawieniami prosto z adnotacji typów (type hints). W wersji 2 logika rdzeniowa została przepisana w j. Rust, drastycznie podnosząc wydajność. V2 silnie promuje użycie `typing.Annotated` do definiowania walidacji.
+
+```python
+from typing import Optional, Annotated
+from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator
+
+class User(BaseModel):
+    id: int
+    # V2: Rekomendowane użycie Annotated do ograniczeń (zamiast = Field(...))
+    name: Annotated[str, Field(min_length=2, max_length=50)]
+    email: EmailStr  # wymaga zainstalowania dodatku: pip install "pydantic[email]"
+    age: Optional[int] = None
+    
+    # V2: Niestandardowy walidator konkretnego pola
+    @field_validator('age')
+    @classmethod
+    def check_age(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 18:
+            raise ValueError('Age must be at least 18')
+        return v
+
+    # V2: Walidator całego modelu (np. zależności między polami)
+    @model_validator(mode='after')
+    def check_email_contains_name(self) -> 'User':
+        if self.name.lower() not in self.email.lower():
+            raise ValueError('Email must contain user name')
+        return self
+
+# 1. Tworzenie obiektu
+user = User(id=1, name="Alice", email="alice@example.com", age=25)
+
+# 2. Eksportowanie danych (V2: używamy metod z prefixem model_ )
+print(user.model_dump())          # Zwraca dict
+print(user.model_dump_json())     # Zwraca string JSON z danymi
+
+# 3. Walidacja z podanych danych na wejściu (V2: metody model_validate_ )
+# Z wczytanego słownika:
+user_dict = {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 30}
+user2 = User.model_validate(user_dict)
+
+# Ze stringa JSON:
+user_json = '{"id": 3, "name": "Charlie", "email": "charlie.brown@example.com"}'
+user3 = User.model_validate_json(user_json)
+
+# 4. Generowanie JSON Schema modelu (V2: model_json_schema)
+schema = User.model_json_schema()
+```

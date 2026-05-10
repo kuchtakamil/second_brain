@@ -3,6 +3,7 @@
 Technika **sliding window** (okno przesuwne) polega na utrzymywaniu podzbioru danych (okna) wewnątrz tablicy lub napisu i przesuwaniu jego granic bez konieczności ponownego przeglądania już sprawdzonych elementów. Dzięki temu rozwiązania, które naiwnie wymagałyby $O(n^2)$, można sprowadzić do $O(n)$.
 
 **Kiedy stosować?**
+
 - Szukasz najdłuższego / najkrótszego podciągu spełniającego jakiś warunek.
 - Pracujesz na ciągłej sekwencji (string, lista).
 
@@ -137,9 +138,46 @@ Mając napis `s` i wzorzec `p`, zwróć listę indeksów startowych wszystkich a
 
 **Przykład:** `s = "cbaebabacd"`, `p = "abc"` → `[0, 6]`
 
-Anagram to permutacja znaków — wystarczy sprawdzać, czy okno o stałym rozmiarze `len(p)` ma identyczny rozkład znaków co `p`.
+### 💡 Intuicja
 
-**Złożoność:** $O(n)$ czasowa, $O(1)$ pamięciowa (alfabet stały)
+**Anagram** = te same litery, innej kolejności. Np. `"bca"`, `"cab"`, `"abc"` to wszystko anagramy siebie nawzajem.
+
+Zamiast generować wszystkie permutacje `p` i szukać każdej z osobna (co byłoby wolne), wystarczy zauważyć:
+
+> Dwa napisy są anagramami ⟺ mają identyczny rozkład częstości liter.
+
+Dlatego przesuwamy **okno stałej szerokości** `len(p)` po napisie `s` i w każdej pozycji porównujemy liczniki liter — jeśli się zgadzają, znaleźliśmy anagram.
+
+### 🔍 Wizualizacja (krok po kroku)
+
+```
+s = "c b a e b a b a c d"
+p = "abc"   →   need = {a:1, b:1, c:1}
+
+Krok 0:  [c b a] e b a b a c d   window = {c:1, b:1, a:1} ✅  → wynik: [0]
+Krok 1:   c[b a e] b a b a c d   window = {b:1, a:1, e:1} ❌
+Krok 2:   c b[a e b] a b a c d   window = {a:1, e:1, b:1} ❌
+Krok 3:   c b a[e b a] b a c d   window = {e:1, b:1, a:1} ❌
+Krok 4:   c b a e[b a b] a c d   window = {b:2, a:1}      ❌
+Krok 5:   c b a e b[a b a] c d   window = {a:2, b:1}      ❌
+Krok 6:   c b a e b a[b a c] d   window = {b:1, a:1, c:1} ✅  → wynik: [0, 6]
+Krok 7:   c b a e b a b[a c d]   window = {a:1, c:1, d:1} ❌
+```
+
+**Kluczowa obserwacja:** przy każdym przesunieciu okna o 1 w prawo:
+
+- **dodajemy** znak wchodzący z prawej (`s[i + k - 1]`)
+- **usuwamy** znak wychodzący z lewej (`s[i - 1]`)
+
+Dzięki temu unikamy przeliczania całego okna od zera — to właśnie daje nam $O(n)$.
+
+**Złożoność:** $O(n)$ czasowa, $O(1)$ pamięciowa (alfabet stały – maks. 26 kluczy)
+
+### Implementacja
+
+Zamiast sprawdzać pierwsze okno ręcznie przed pętlą, wciągnijmy ten proces do środka. W każdej iteracji:
+1. Sprawdzamy stan okna startującego od `i`.
+2. Aktualizujemy okno przygotowując je dla iteracji `i + 1`.
 
 ```python
 from collections import Counter
@@ -148,26 +186,28 @@ def find_anagrams(s: str, p: str) -> list[int]:
     if len(p) > len(s):
         return []
 
-    need = Counter(p)
-    window = Counter(s[:len(p)])  # initial window
-    result = []
     k = len(p)
+    need = Counter(p)              # referencyjna "sygnatura" wzorca, np. {a:1, b:1, c:1}
+    window = Counter(s[:k])        # Counter pierwszego okna (indeksy 0..k-1)
+    result = []
 
-    if window == need:
-        result.append(0)
+    # i to indeks STARTOWY okna (0, 1, 2, ...)
+    for i in range(len(s) - k + 1):
+        # 1. Sprawdź okno dla obecnego startu 'i'
+        if window == need:        
+            result.append(i)      
 
-    for i in range(1, len(s) - k + 1):
-        # slide window: add new char on right, remove old char on left
-        new_char = s[i + k - 1]
-        old_char = s[i - 1]
+        # 2. Zaktualizuj okno dla następnej iteracji (i + 1)
+        # (pomijamy aktualizację, jeśli sprawdziliśmy okno na samym końcu stringa)
+        if i < len(s) - k:
+            new_char = s[i + k]   # znak wchodzący (tuż za prawą krawędzią obecnego okna)
+            old_char = s[i]       # znak opuszczający (lewa krawędź obecnego okna)
 
-        window[new_char] += 1
-        window[old_char] -= 1
-        if window[old_char] == 0:
-            del window[old_char]  # keep Counter clean for comparison
-
-        if window == need:
-            result.append(i)
+            window[new_char] += 1
+            window[old_char] -= 1
+            
+            if window[old_char] == 0:
+                del window[old_char]  # posprzątaj, żeby Counter == need działało poprawnie
 
     return result
 
@@ -175,6 +215,9 @@ def find_anagrams(s: str, p: str) -> list[int]:
 print(find_anagrams("cbaebabacd", "abc"))  # [0, 6]
 print(find_anagrams("abab", "ab"))         # [0, 1, 2]
 ```
+
+> [!TIP]
+> `del window[old_char]` jest kluczowe! `Counter({a:1}) != Counter({a:1, b:0})` — Python porównuje słowniki dosłownie, więc klucze z wartością `0` psują porównanie.
 
 ---
 
@@ -234,5 +277,6 @@ print(check_inclusion("ab", "eidboaoo"))  # False
 | **Permutation in String** | Fixed window + porównanie Counterów | $O(n)$ |
 
 **Powiązane tematy:**
+
 - [Implementacje Binary Search](implementacje-binary-search.md)
 - [Tablice dwuwymiarowe w Pythonie](tablice-dwuwymiarowe-w-pythonie.md)

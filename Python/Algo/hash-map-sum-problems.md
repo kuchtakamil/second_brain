@@ -47,6 +47,11 @@ def two_sum_all(nums: list[int], target: int) -> list[list[int]]:
             for j in seen[complement]:  # każdy poprzedni indeks z tą wartością
                 result.append([j, i])
         seen.setdefault(x, []).append(i)
+        # to samo co:
+        # if x not in seen:
+        # seen[x] = []
+        # seen[x].append(i)
+
 
     return result
 
@@ -60,34 +65,57 @@ print(two_sum_all([1, 2, 3], 10))       # []
 
 ## 2. Three Sum
 
-Mając listę `nums`, znajdź wszystkie unikalne trójki `[a, b, c]` takie, że `a + b + c == 0`.
+Mając listę `nums`, znajdź wszystkie **unikalne** trójki `[a, b, c]` takie, że `a + b + c == 0`.
 
 **Przykład:** `nums = [-1, 0, 1, 2, -1, -4]` → `[[-1, -1, 2], [-1, 0, 1]]`
 
-**Idea:** posortuj tablicę, iteruj po pierwszym elemencie (`a`), a dla pozostałych dwóch użyj techniki **two pointers** (lewa/prawa granica). Pomijaj duplikaty po każdym kroku.
-
 **Złożoność:** $O(n^2)$ czasowa, $O(1)$ pamięciowa (bez wyjściowej listy)
+
+### Intuicja
+
+Naiwne rozwiązanie — trzy zagnieżdżone pętle — daje $O(n^3)$. Możemy zejść do $O(n^2)$ kombinując dwie techniki:
+
+**Krok 1 — Sortowanie.** Po posortowaniu tablicy zyskujemy dwie rzeczy:
+- wiemy, że `nums[left] ≤ nums[right]`, więc możemy świadomie przesuwać wskaźniki,
+- łatwo pomijamy duplikaty — jednakowe wartości leżą obok siebie.
+
+**Krok 2 — Kotwica + Two Pointers.** Zewnętrzna pętla `for` ustala **kotwicę** (`anchor`) — jeden z trzech elementów. Dla pozostałych dwóch używamy dwóch wskaźników: `left` (tuż za kotwicą) i `right` (koniec tablicy).
+
+```
+posortowana:  [-4, -1, -1, 0, 1, 2]
+               ^anchor  ^left      ^right
+```
+
+W każdej iteracji wewnętrznej sprawdzamy `current_sum = anchor + nums[left] + nums[right]`:
+
+| `current_sum` | co robimy | dlaczego |
+|---|---|---|
+| `== 0` | zapisujemy trójkę, `left += 1` | znaleźliśmy parę — szukamy kolejnej |
+| `< 0` | `left += 1` | suma za mała — potrzebujemy większej liczby z lewej |
+| `> 0` | `right -= 1` | suma za duża — potrzebujemy mniejszej liczby z prawej |
+
+**Krok 3 — Pomijanie duplikatów.** Zadanie wymaga **unikalnych** trójek, więc po każdym kroku przeskakujemy powtarzające się wartości — zarówno na poziomie kotwicy, jak i wskaźnika `left`.
 
 ```python
 def three_sum(nums: list[int]) -> list[list[int]]:
     nums.sort()
     result = []
 
-    for i, a in enumerate(nums):
-        # skip duplicate values for the first element
-        if i > 0 and nums[i] == nums[i - 1]:
+    for anchor_idx, anchor in enumerate(nums):
+        # skip duplicate values for the anchor element
+        if anchor_idx > 0 and nums[anchor_idx] == nums[anchor_idx - 1]:
             continue
 
-        left, right = i + 1, len(nums) - 1
+        left, right = anchor_idx + 1, len(nums) - 1
         while left < right:
-            s = a + nums[left] + nums[right]
-            if s == 0:
-                result.append([a, nums[left], nums[right]])
+            current_sum = anchor + nums[left] + nums[right]
+            if current_sum == 0:
+                result.append([anchor, nums[left], nums[right]])
                 left += 1
-                # skip duplicates for the second element
+                # skip duplicates for the left pointer
                 while left < right and nums[left] == nums[left - 1]:
                     left += 1
-            elif s < 0:
+            elif current_sum < 0:
                 left += 1
             else:
                 right -= 1
@@ -100,30 +128,152 @@ print(three_sum([0, 0, 0]))              # [[0, 0, 0]]
 print(three_sum([1, 2, -2, -1]))         # []
 ```
 
+### Kiedy sortowanie jest niedozwolone?
+
+Sortowanie jest ok, gdy zadanie pyta o **wartości** (jak klasyczny LeetCode 15). Sortowanie **niszczy oryginalne indeksy**, więc jeśli zadanie żąda **trójek indeksów** — nie możemy tego zrobić.
+
+### Wariant: Three Sum — zwróć indeksy
+
+Mając listę `nums`, zwróć wszystkie trójki indeksów `(i, j, k)` takie, że `i < j < k` i `nums[i] + nums[j] + nums[k] == 0`.
+
+**Złożoność:** $O(n^2)$ czasowa, $O(n)$ pamięciowa
+
+#### Intuicja
+
+Zewnętrzna pętla ustala **kotwicę** `anchor_idx`. Dla każdej kotwicy przeglądamy pozostałe elementy pętlą wewnętrzną — jak w Two Sum All Pairs, z tym że `seen` mapuje `wartość → indeks`.
+
+Kluczowa obserwacja: gdy jesteśmy na pozycji `j`, słownik `seen` zawiera **tylko indeksy między `anchor_idx + 1` a `j - 1`**. Dzięki temu znaleziony indeks `k` spełnia zawsze `anchor_idx < k < j` — trójka `(anchor_idx, k, j)` jest już z definicji posortowana rosnąco, bez sortowania tablicy.
+
+```
+nums = [0, -1, 2, -3, 1]
+
+anchor_idx=0 (anchor=0):
+  j=1  seen={}           szukam -(0 + -1) =  1  → nie ma; seen={-1: 1}
+  j=2  seen={-1:1}       szukam -(0 +  2) = -2  → nie ma; seen={-1:1, 2:2}
+  j=3  seen={-1:1, 2:2}  szukam -(0 + -3) =  3  → nie ma; seen={...,-3:3}
+  j=4  seen={...}        szukam -(0 +  1) = -1  → JEST! k=1
+                         → trójka (0, 1, 4): nums=[0,-1,1] ✓
+```
+
+```python
+def three_sum_indices(nums: list[int]) -> list[tuple[int, int, int]]:
+    result = []
+
+    for anchor_idx in range(len(nums) - 2):
+        # seen maps value -> index, reset for each anchor
+        seen: dict[int, int] = {}
+
+        for j in range(anchor_idx + 1, len(nums)):
+            complement = -(nums[anchor_idx] + nums[j])
+
+            if complement in seen:
+                # seen[complement] is index k, where anchor_idx < k < j
+                result.append((anchor_idx, seen[complement], j))
+
+            # add AFTER the lookup to avoid using j as its own complement
+            seen[nums[j]] = j
+
+    return result
+
+# Usage:
+print(three_sum_indices([0, -1, 2, -3, 1]))  # [(0, 1, 4), (0, 2, 3)]
+print(three_sum_indices([-1, 0, 1, 2]))      # [(0, 1, 2)]
+print(three_sum_indices([1, 2, 3]))          # []
+```
+
+> **Uwaga:** jeśli `nums` zawiera duplikaty wartości, wynik może zawierać trójki o tych samych wartościach, ale **różnych indeksach** — to poprawne zachowanie, bo zadanie pyta o indeksy, nie o unikalne wartości.
+
 ---
 
 ## 3. Subarray Sum Equals K
 
-Mając listę `nums` i liczbę `k`, zwróć liczbę ciągłych podtablic, których suma wynosi `k`.
+Mając listę `nums` i liczbę `k`, zwróć **liczbę** ciągłych podtablic, których suma wynosi `k`.
 
-**Przykład:** `nums = [1, 1, 1]`, `k = 2` → `2`
-
-**Idea:** użyj **prefix sum** (suma prefiksowa). Dla każdego indeksu `i` oblicz `prefix[i]`. Podtablica `[j+1..i]` ma sumę `k` wtedy i tylko wtedy, gdy `prefix[i] - prefix[j] == k`, czyli `prefix[j] == prefix[i] - k`. Zliczaj widziane prefiksy w słowniku.
+**Przykład:** `nums = [1, 2, 3]`, `k = 3` → `2` (podtablice `[1,2]` i `[3]`)
 
 **Złożoność:** $O(n)$ czasowa, $O(n)$ pamięciowa
+
+### Krok 1 — Co to jest prefix sum?
+
+**Prefix sum** (suma prefiksowa) w pozycji `i` to suma **wszystkich elementów od początku tablicy do indeksu `i` włącznie**.
+
+```
+nums    =  [1,  2,  3,  4]
+prefix  =  [1,  3,  6, 10]
+            ↑   ↑   ↑   ↑
+           1  1+2 1+2+3 1+2+3+4
+```
+
+### Krok 2 — Jak prefix sum pomaga znaleźć sumę podtablicy?
+
+Suma elementów między indeksami `j+1` a `i` to:
+
+```
+suma[j+1..i] = prefix[i] - prefix[j]
+```
+
+Przykład: suma `[2, 3]` (indeksy 1–2):
+```
+prefix[2] - prefix[0] = 6 - 1 = 5  ✓  (2+3=5)
+```
+
+Czyli zamiast sumować od nowa za każdym razem, **odejmujemy dwa prefiksy**.
+
+### Krok 3 — Kiedy podtablica ma sumę = k?
+
+Szukamy par `(j, i)` takich, że:
+
+```
+prefix[i] - prefix[j] == k
+```
+
+Co to samo co:
+
+```
+prefix[j] == prefix[i] - k
+```
+
+Dla każdego `i` znamy `prefix[i]`. Pytamy: **ile razy widzieliśmy wcześniej wartość `prefix[i] - k`?** — każde takie wystąpienie odpowiada jednej podtablicy kończącej się na `i`, której suma = `k`.
+
+### Krok 4 — Śledź prefiksy słownikiem (nie tablicą)
+
+Zamiast budować pełną tablicę prefixów, przechodzimy po `nums` i na bieżąco:
+1. obliczamy `prefix += x` (bieżąca suma prefiksowa)
+2. sprawdzamy, ile razy `prefix - k` już widzieliśmy → dodajemy do wyniku
+3. zapisujemy bieżący `prefix` w słowniku
+
+### Ślad wykonania
+
+```
+nums = [1, 2, 3],  k = 3
+counts = {0: 1}   ← "pusty prefiks" (suma = 0) widziany raz — patrz niżej
+prefix = 0,  result = 0
+
+i=0  x=1:  prefix=1,  szukam 1-3=-2  → counts[-2]=0  result=0;  counts={0:1, 1:1}
+i=1  x=2:  prefix=3,  szukam 3-3= 0  → counts[0] =1  result=1;  counts={0:1,1:1,3:1}
+i=2  x=3:  prefix=6,  szukam 6-3= 3  → counts[3] =1  result=2;  counts={...,6:1}
+
+wynik: 2  ✓  ([1,2] i [3])
+```
+
+### Dlaczego `counts[0] = 1`?
+
+Jeśli podtablica zaczyna się od indeksu `0`, to `prefix[j]` odpowiada "pustemu prefiksowi" (suma = 0 **przed** pierwszym elementem). Bez `counts[0] = 1` takie podtablice nie byłyby zliczane.
+
+**Przykład:** `nums = [3]`, `k = 3` → szukamy `prefix[0] - k = 3 - 3 = 0`. Bez `counts[0]=1` wynik = 0 zamiast 1.
 
 ```python
 from collections import defaultdict
 
 def subarray_sum(nums: list[int], k: int) -> int:
     counts = defaultdict(int)
-    counts[0] = 1  # empty prefix (sum = 0) seen once
+    counts[0] = 1  # "empty prefix" before index 0
     prefix = 0
     result = 0
 
     for x in nums:
         prefix += x
-        # how many prefixes ended with (prefix - k)?
+        # how many earlier prefixes satisfy: current_prefix - earlier_prefix == k?
         result += counts[prefix - k]
         counts[prefix] += 1
 
@@ -131,7 +281,7 @@ def subarray_sum(nums: list[int], k: int) -> int:
 
 # Usage:
 print(subarray_sum([1, 1, 1], 2))      # 2
-print(subarray_sum([1, 2, 3], 3))      # 2  ([1,2] and [3])
+print(subarray_sum([1, 2, 3], 3))      # 2  ([1,2] i [3])
 print(subarray_sum([-1, -1, 1], 0))    # 1
 ```
 
@@ -221,6 +371,7 @@ print(top_k_frequent([1], 1))                  # [1]
 | **Top K Frequent Elements** | Hash map + Bucket Sort | $O(n)$ |
 
 **Powiązane tematy:**
+
 - [Sliding Window](sliding-window.md)
 - [Implementacje Binary Search](implementacje-binary-search.md)
 - [Tablice dwuwymiarowe w Pythonie](tablice-dwuwymiarowe-w-pythonie.md)

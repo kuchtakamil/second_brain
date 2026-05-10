@@ -1,9 +1,3 @@
-## <https://www.youtube.com/watch?v=oAkLSJNr5zY>
-
-Here is a comprehensive, detailed educational guide based on the provided transcript. It covers every concept, analogy, and code example discussed in the video.
-
----
-
 # Mastering `asyncio` in Python: A Comprehensive Guide
 
 Python’s built-in `asyncio` library for writing concurrent code can seem intimidating due to its unique terminology and moving parts. However, understanding how the event loop works and knowing when to use asynchronous code versus threads or multiprocessing is a superpower for Python developers.

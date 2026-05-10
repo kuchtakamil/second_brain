@@ -1,0 +1,22 @@
+Claude Code nie wiedział nic o React Native.
+Teraz wie wszystko.
+Ekipa Expo wypuściła oficjalny zestaw 13 skilli bezpośrednio dla Claude Code.
+Co to znaczy w praktyce?
+Agent dostaje wbudowaną wiedzę o całym cyklu życia apki mobilnej:
+→ budowanie UI zgodnie z konwencjami Expo
+→ data fetching i zarządzanie stanem
+→ konfiguracja bazy danych
+→ testy E2E
+→ deploy do App Store i Google Play
+Skille triggerują się automatycznie w zależności od kontekstu. Nie musisz nic wywoływać ręcznie.
+Instalacja:
+/plugin marketplace add expo/skills
+/plugin install expo
+Dwie komendy. Gotowe.
+Prawdziwa siła pojawia się gdy połączysz to z własną architekturą skilli:
+Skille organizacyjne (planowanie, kodowanie, review) wywołują agentów.
+Agenci dziedziczą skille operacyjne (UI, bazy, deploy).
+Agent nigdy nie traci kontekstu - wytyczne ma wbudowane, nie w prompcie.
+To różnica między agentem który "wie" a agentem który "pamięta".
+
+https://github.com/expo/skills
