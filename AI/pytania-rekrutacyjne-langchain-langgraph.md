@@ -36,6 +36,26 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    Starszy `AgentExecutor` ukrywał dużo logiki w pętli agenta: model decydował, narzędzie było wykonywane, wynik wracał do modelu, aż do odpowiedzi końcowej lub limitu iteracji. Dla prostych agentów było to wygodne, ale w produkcji utrudniało debugowanie, trwałe wznowienia, human-in-the-loop, kontrolę stanu, time travel, równoległe gałęzie i mieszanie logiki deterministycznej z decyzjami modelu. LangGraph rozwiązuje te problemy przez jawny stan, checkpointery, interrupcje, warunkowe krawędzie i możliwość wznowienia grafu od zapisanego kroku.
 
+   Przykład:
+
+   ```python
+   from typing import TypedDict
+   from langgraph.graph import StateGraph, START, END
+
+   class State(TypedDict):
+       question: str
+       answer: str
+
+   def answer_node(state: State) -> dict:
+       return {"answer": f"Odpowiedź na: {state['question']}"}
+
+   builder = StateGraph(State)
+   builder.add_node("answer", answer_node)
+   builder.add_edge(START, "answer")
+   builder.add_edge("answer", END)
+   graph = builder.compile()
+   ```
+
 3. Jakie są główne alternatywy dla ekosystemu LangChain / LangGraph (np. LlamaIndex, AutoGen, CrewAI, natywne implementacje) i jakie czynniki mogą wpłynąć na wybór LangGraph w komercyjnym projekcie?
 
    **Odpowiedź:** Główne alternatywy to:
@@ -54,6 +74,26 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    **Odpowiedź:** LangChain przesunął się w stronę wysokopoziomowej warstwy nad runtime'em LangGraph. `create_agent` daje prosty interfejs do zbudowania agenta z modelem, narzędziami, middleware, structured output i konfiguracją, ale pod spodem korzysta z mechanizmów grafowych: stanu, wiadomości, narzędzi, streamingu i trwałego wykonania.
 
    Dla nowych aplikacji oznacza to, że prosty agent powinien zwykle startować od `create_agent`, bo dostaje gotową pętlę tool callingu i integrację z aktualnym API. Gdy pojawia się potrzeba własnego routingu, kilku etapów biznesowych, odrębnych stanów, interrupcji, równoległych gałęzi lub nietypowego sterowania, lepiej przejść bezpośrednio do LangGraph. Projektowanie powinno zakładać, że agent to nie tylko prompt, ale kontrolowany workflow ze stanem, kontraktem wejścia/wyjścia, limitami, obsługą błędów i obserwowalnością.
+
+   Przykład:
+
+   ```python
+   from langchain.agents import create_agent
+
+   def get_order_status(order_id: str) -> str:
+       """Return status for one order."""
+       return "paid"
+
+   agent = create_agent(
+       model="openai:gpt-4.1-mini",
+       tools=[get_order_status],
+       system_prompt="Odpowiadaj tylko na podstawie narzędzi."
+   )
+
+   result = agent.invoke({
+       "messages": [{"role": "user", "content": "Jaki jest status zamówienia A-123?"}]
+   })
+   ```
 
 5. Czym różnią się pakiety `langchain`, `langchain-core`, `langchain-community` oraz pakiety integracyjne dostawców modeli i narzędzi? Dlaczego ten podział ma znaczenie przy utrzymaniu zależności?
 
@@ -101,11 +141,40 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    Są ważne, ponieważ model generuje tekst probabilistycznie, a aplikacja produkcyjna potrzebuje kontraktu: wymaganych pól, typów, enumów, zakresów liczbowych i obsługi błędów. Bez parsera kod kończy się kruchym parsowaniem stringów, regexami i błędami w momentach, gdy model doda komentarz, markdown albo pominie pole. W nowoczesnych aplikacjach parsery często są zastępowane lub wspierane przez `with_structured_output` i provider-native structured output, ale zasada pozostaje ta sama: wynik modelu musi zostać zwalidowany przed użyciem w logice biznesowej.
 
+   Przykład:
+
+   ```python
+   from pydantic import BaseModel, Field
+   from langchain_core.output_parsers import PydanticOutputParser
+
+   class Ticket(BaseModel):
+       category: str = Field(description="billing, technical albo sales")
+       priority: int = Field(ge=1, le=5)
+
+   parser = PydanticOutputParser(pydantic_object=Ticket)
+   ticket = parser.parse('{"category": "billing", "priority": 3}')
+   ```
+
 3. Czym w ekosystemie LangChain jest klasa `Runnable`? Podaj przykłady implementacji i możliwości łączenia takich komponentów.
 
    **Odpowiedź:** `Runnable` to wspólny interfejs wykonywalnego komponentu w LangChain. Komponent przyjmuje wejście, zwraca wyjście i obsługuje standardowe metody uruchamiania, takie jak `invoke`, `batch`, `stream` oraz konfigurację przez `RunnableConfig`.
 
    Przykłady `Runnable` to `ChatPromptTemplate`, modele czatowe, output parsery, retrievery, własne funkcje opakowane jako `RunnableLambda`, równoległe mapowania `RunnableParallel`, sekwencje LCEL i komponenty z dodanym retry/fallbackiem. Można je łączyć sekwencyjnie przez `|`, równolegle przez słowniki lub `RunnableParallel`, konfigurować przez `with_config`, rozszerzać przez `assign`, wiązać parametry przez `bind` i opakowywać mechanizmami typu `with_retry`.
+
+   Przykład:
+
+   ```python
+   from langchain_core.runnables import RunnableLambda, RunnableParallel
+
+   normalize = RunnableLambda(lambda x: x.strip().lower())
+   enrich = RunnableParallel(
+       original=lambda x: x,
+       length=lambda x: len(x),
+   )
+
+   result = (normalize | enrich).invoke("  LangGraph  ")
+   # {"original": "langgraph", "length": 9}
+   ```
 
 4. Jaka jest różnica pomiędzy `ChatModel` a tradycyjnym `LLM` w architekturze LangChain?
 
@@ -118,6 +187,20 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    **Odpowiedź:** `RunnableConfig` to konfiguracja przekazywana przy uruchamianiu komponentu, np. `chain.invoke(input, config={...})`. Konfiguracja może być dziedziczona przez podwywołania, więc pozwala kontrolować całe wykonanie bez dopisywania parametrów do danych wejściowych.
 
    `tags` służą do grupowania i filtrowania trace'ów, np. `["prod", "rag", "billing"]`. `metadata` przechowuje informacje diagnostyczne, np. `user_id`, `tenant_id`, wersję eksperymentu lub identyfikator requestu. `callbacks` pozwalają podpiąć obsługę zdarzeń: start, koniec, błąd, tokeny, tool calle. `configurable` służy do przekazywania wartości używanych przez komponenty konfigurowalne, np. `thread_id` w pamięci, wariant modelu albo ustawienia runtime'u. `max_concurrency` ogranicza liczbę równoległych wywołań przy `batch` i podobnych operacjach, co chroni przed rate limitami i przeciążeniem zależności.
+
+   Przykład:
+
+   ```python
+   result = chain.invoke(
+       {"question": "Co to jest LangGraph?"},
+       config={
+           "tags": ["prod", "faq"],
+           "metadata": {"tenant_id": "acme", "request_id": "req-123"},
+           "configurable": {"thread_id": "thread-42"},
+           "max_concurrency": 4,
+       },
+   )
+   ```
 
 6. Czym różnią się metody `invoke`, `ainvoke`, `batch`, `abatch`, `stream` i `astream_events` w komponentach zgodnych z interfejsem `Runnable`?
 
@@ -132,6 +215,21 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Klasycznego Output Parsera użyłbym, gdy pracuję z modelem bez dobrego wsparcia structured output, potrzebuję niestandardowego parsowania tekstu, przetwarzam odpowiedź historycznego chaina albo chcę jawnie kontrolować format instructions i sposób naprawy błędów parsowania.
 
    `response_format` w `create_agent` wybrałbym wtedy, gdy cały agent, po wykonaniu narzędzi i pętli rozumowania, ma zwrócić finalną odpowiedź strukturalną. Różnica jest w poziomie: `with_structured_output` dotyczy modelu lub kroku, a `response_format` dotyczy kontraktu wyniku agenta.
+
+   Przykład:
+
+   ```python
+   from pydantic import BaseModel
+   from langchain.chat_models import init_chat_model
+
+   class Route(BaseModel):
+       destination: str
+       confidence: float
+
+   model = init_chat_model("openai:gpt-4.1-mini")
+   router = model.with_structured_output(Route)
+   route = router.invoke("To pytanie dotyczy faktury.")
+   ```
 
 8. Jak projektować prompty z użyciem `ChatPromptTemplate`, `MessagesPlaceholder` i wiadomości systemowych, aby nie mieszać instrukcji systemowych z danymi użytkownika?
 
@@ -159,6 +257,22 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    **Odpowiedź:** Tool calling to mechanizm, w którym model nie wykonuje kodu, tylko zwraca strukturalną informację, że chce wywołać konkretne narzędzie z konkretnymi argumentami. Aplikacja odbiera tę decyzję, waliduje argumenty, wykonuje funkcję po swojej stronie i przekazuje wynik z powrotem do modelu jako wiadomość narzędzia.
 
    Technicznie LangChain konwertuje definicje narzędzi, np. funkcje oznaczone `@tool`, klasy `BaseTool` albo schematy Pydantic, do formatu zrozumiałego dla providera: nazwy narzędzia, opisu i JSON Schema argumentów. Następnie przekazuje tę listę do modelu przez API providera, np. jako `tools`/`functions`. Model może zwrócić `AIMessage` z polem `tool_calls`, zawierającym nazwę narzędzia, identyfikator wywołania i argumenty. Wykonaniem zajmuje się agent, `ToolNode` albo własny kod orkiestrujący.
+
+   Przykład:
+
+   ```python
+   from langchain_core.tools import tool
+   from langchain.chat_models import init_chat_model
+
+   @tool
+   def get_weather(city: str) -> str:
+       """Return current weather for a city."""
+       return "18C, cloudy"
+
+   model = init_chat_model("openai:gpt-4.1-mini").bind_tools([get_weather])
+   msg = model.invoke("Jaka jest pogoda w Warszawie?")
+   print(msg.tool_calls)
+   ```
 
 2. Wyjaśnij różnicę między wzorcem ReAct (Reasoning and Acting) a prostym łańcuchem RAG (Retrieval-Augmented Generation). Kiedy użyłbyś agenta ReAct?
 
@@ -206,11 +320,45 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    W praktyce rozdzieliłbym błędy na kategorie: walidacja wejścia, brak uprawnień, brak danych, timeout, rate limit, błąd zależności i błąd nieoczekiwany. Dla timeoutów i błędów przejściowych można użyć retry z limitem i backoffem. Dla błędów trwałych narzędzie powinno zwrócić zwięzłą obserwację, np. "system płatności jest chwilowo niedostępny" albo "nie znaleziono faktury", aby agent mógł zdecydować, czy spróbować alternatywy, zadać pytanie użytkownikowi czy zakończyć. Dla operacji krytycznych warto stosować circuit breaker i fallback.
 
+   Przykład:
+
+   ```python
+   from langchain_core.tools import tool
+
+   @tool
+   def get_invoice_status(invoice_id: str) -> str:
+       """Return invoice status by invoice_id."""
+       try:
+           return billing_client.status(invoice_id)
+       except TimeoutError:
+           return "Billing system timeout. Try again later or ask for manual review."
+       except PermissionError:
+           return "User is not allowed to access this invoice."
+   ```
+
 5. Jak działa `create_agent` w aktualnym LangChain i czym różni się od starszego podejścia opartego o `AgentExecutor` oraz ręcznie konstruowane agenty ReAct?
 
    **Odpowiedź:** `create_agent` tworzy gotowego agenta z modelu, narzędzi, opcjonalnego system promptu, middleware, structured output i konfiguracji runtime'u. Zamiast ręcznie składać prompt ReAct, parser, listę narzędzi i `AgentExecutor`, przekazuje się elementy wysokiego poziomu, a LangChain buduje pętlę agenta na runtime LangGraph.
 
    Różnica względem starszego podejścia jest taka, że `AgentExecutor` był przede wszystkim wykonawcą pętli agentowej wokół obiektu agenta. W nowym podejściu agent jest bliżej grafu: ma jawniejszą integrację ze stanem wiadomości, tool callingiem, middleware, streamingiem, structured response i mechanizmami LangGraph. Ręczne agenty ReAct nadal pomagają zrozumieć wzorzec, ale dla nowych aplikacji typowy punkt startowy to `create_agent`, a dla niestandardowego workflow bezpośredni `StateGraph`.
+
+   Przykład:
+
+   ```python
+   from langchain.agents import create_agent
+
+   agent = create_agent(
+       model="openai:gpt-4.1-mini",
+       tools=[get_invoice_status],
+       system_prompt="Jesteś agentem obsługi płatności."
+   )
+
+   for update in agent.stream(
+       {"messages": [{"role": "user", "content": "Sprawdź fakturę FV-10"}]},
+       stream_mode="updates",
+   ):
+       print(update)
+   ```
 
 6. Czym różni się bindowanie narzędzi do modelu (`bind_tools`) od przekazania narzędzi do agenta tworzonego przez `create_agent`?
 
@@ -218,17 +366,61 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    Przekazanie `tools` do `create_agent` rejestruje narzędzia w pełnym agencie. Agent nie tylko pokazuje schematy modelowi, ale też obsługuje decyzję modelu, waliduje i wykonuje narzędzia, dopisuje wyniki do historii, kontynuuje pętlę i zwraca odpowiedź końcową. `bind_tools` jest właściwe przy własnej orkiestracji, np. w LangGraph z `ToolNode`; `create_agent(tools=[...])` jest właściwe, gdy chcemy gotowej pętli narzędziowej.
 
+   Przykład:
+
+   ```python
+   from langgraph.prebuilt import ToolNode
+
+   llm_with_tools = model.bind_tools([get_invoice_status])
+   tool_node = ToolNode([get_invoice_status])
+
+   ai_msg = llm_with_tools.invoke("Sprawdź fakturę FV-10")
+   tool_result = tool_node.invoke({"messages": [ai_msg]})
+   ```
+
 7. Jak zapewnić walidację wejścia narzędzia przy użyciu schematów typów, Pydantic lub adnotacji funkcji? Co powinno się stać, gdy model wygeneruje niepoprawne argumenty?
 
    **Odpowiedź:** Walidację zapewnia się przez adnotacje typów funkcji, `args_schema` oparte o Pydantic albo jawny JSON Schema. Schemat powinien definiować typy, pola wymagane, opisy, enumy, zakresy i ograniczenia formatu. Przykładowo `amount: float`, `currency: Literal["PLN", "EUR", "USD"]` i `customer_id: str` dają modelowi jasny kontrakt, a aplikacji możliwość walidacji przed wykonaniem narzędzia.
 
    Gdy model wygeneruje niepoprawne argumenty, narzędzie nie powinno wykonywać operacji. System powinien zwrócić kontrolowany błąd walidacji do pętli agenta albo zakończyć request, zależnie od krytyczności. Dla bezpiecznych narzędzi można pozwolić agentowi poprawić argumenty w kolejnym kroku. Dla operacji o skutkach ubocznych lepiej wymagać ponownego potwierdzenia lub przerwać wykonanie, bo automatyczne "zgadywanie" brakujących danych może doprowadzić do nieautoryzowanej akcji.
 
+   Przykład:
+
+   ```python
+   from typing import Literal
+   from pydantic import BaseModel, Field
+   from langchain_core.tools import tool
+
+   class RefundInput(BaseModel):
+       order_id: str
+       amount: float = Field(gt=0, le=500)
+       currency: Literal["PLN", "EUR", "USD"]
+
+   @tool(args_schema=RefundInput)
+   def create_refund(order_id: str, amount: float, currency: str) -> str:
+       """Create a refund request, not the final payout."""
+       return refunds.create(order_id, amount, currency)
+   ```
+
 8. Jak zaprojektować narzędzie, które wykonuje operację o skutkach ubocznych (np. wysłanie e-maila, płatność, zapis do CRM), aby było bezpieczne, idempotentne i audytowalne?
 
    **Odpowiedź:** Narzędzie ze skutkami ubocznymi powinno mieć wąski zakres, jawny schemat wejścia, autoryzację po stronie serwera i oddzielony etap planowania od wykonania. Model może przygotować propozycję akcji, ale wykonanie powinno przejść przez walidację polityk, sprawdzenie uprawnień i w razie potrzeby human approval.
 
    Idempotencję zapewnia się przez `idempotency_key`, unikalny identyfikator operacji, zapis statusu wykonania i sprawdzenie, czy dana akcja nie została już wykonana. Audyt wymaga logowania: kto zainicjował akcję, jaki był prompt/request, jakie argumenty zatwierdzono, kiedy wykonano narzędzie, jaki system zewnętrzny odpowiedział i jaki był wynik. Narzędzie nie powinno przyjmować dowolnego tekstu jako komendy; powinno przyjmować konkretne pola, np. `recipient`, `subject`, `body`, `approval_id`. Dla płatności i zmian w CRM warto stosować tryb "dry run", limity kwot, allowlisty odbiorców, kontrolę tenantów i mechanizm zatwierdzania.
+
+   Przykład:
+
+   ```python
+   @tool
+   def send_email(recipient: str, subject: str, body: str, approval_id: str) -> str:
+       """Send an approved email. Requires a valid approval_id."""
+       approval = approvals.get(approval_id)
+       if not approval or approval.status != "approved":
+           return "Email not sent: missing approval."
+
+       key = f"email:{approval_id}"
+       return email_client.send_once(recipient, subject, body, idempotency_key=key)
+   ```
 
 9. Jakie ryzyka bezpieczeństwa pojawiają się przy tool callingu, np. prompt injection, eskalacja uprawnień, wyciek danych lub wykonywanie nieautoryzowanych akcji?
 
@@ -257,6 +449,25 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    W LangGraph pamięć krótkoterminowa jest częścią stanu grafu. Najczęściej używa się `MessagesState` albo własnego `TypedDict` z polem `messages` i reducerem `add_messages`. Checkpointer zapisuje stan po krokach grafu pod konkretnym `thread_id`, więc kolejne wywołania z tym samym `thread_id` kontynuują rozmowę z poprzednią historią.
 
+   Przykład:
+
+   ```python
+   from langgraph.checkpoint.memory import InMemorySaver
+   from langgraph.graph import MessagesState, StateGraph, START
+
+   def call_model(state: MessagesState):
+       response = model.invoke(state["messages"])
+       return {"messages": [response]}
+
+   builder = StateGraph(MessagesState)
+   builder.add_node("model", call_model)
+   builder.add_edge(START, "model")
+   graph = builder.compile(checkpointer=InMemorySaver())
+
+   config = {"configurable": {"thread_id": "user-123:chat-1"}}
+   graph.invoke({"messages": [{"role": "user", "content": "Cześć"}]}, config)
+   ```
+
 2. Jak zapobiec przekroczeniu limitu tokenów kontekstu (Context Window Limit) podczas bardzo długo trwającej konwersacji (np. za pomocą podsumowań konwersacji, okna przesuwnego, limitów tokenów wiadomości w pamięci)?
 
    **Odpowiedź:** Należy oddzielić pełną historię zapisaną w systemie od historii przekazywanej do modelu. Model powinien dostawać tylko kontekst potrzebny do aktualnego kroku: ostatnie wiadomości, trwałe fakty, aktywne decyzje workflow i ewentualne podsumowanie wcześniejszej rozmowy.
@@ -269,11 +480,35 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    W praktyce backend przechowuje tabelę rozmów z polami typu `conversation_id`, `user_id`, `tenant_id`, `thread_id`, `created_at`, `status`. Przy każdym requestcie sprawdza, czy użytkownik ma dostęp do danej rozmowy, buduje config z właściwym `thread_id`, uruchamia graf i zapisuje metadane. Dla aplikacji wielotenantowej `thread_id` powinien być globalnie unikalny albo połączony z tenantem w warstwie autoryzacji.
 
+   Przykład:
+
+   ```python
+   def run_chat(user_id: str, conversation_id: str, message: str):
+       conversation = db.get_conversation(conversation_id)
+       if conversation.user_id != user_id:
+           raise PermissionError("No access to this conversation")
+
+       config = {"configurable": {"thread_id": conversation.thread_id}}
+       return graph.invoke(
+           {"messages": [{"role": "user", "content": message}]},
+           config=config,
+       )
+   ```
+
 4. Czym różni się pamięć krótkoterminowa oparta o checkpointer od pamięci długoterminowej przechowywanej w `Store`?
 
    **Odpowiedź:** Checkpointer zapisuje stan wykonania grafu w ramach konkretnego wątku. To pamięć operacyjna: historia wiadomości, aktualne pola stanu, następne węzły, checkpointy potrzebne do wznowienia, debugowania i time travel. Jest powiązana z `thread_id` i konkretnym przebiegiem workflow.
 
    `Store` służy do pamięci długoterminowej dostępnej między wątkami. Przechowuje fakty, preferencje, profile użytkownika, artefakty, streszczenia lub wpisy semantyczne wyszukiwane po namespace. Ten sam użytkownik może mieć wiele `thread_id`, ale korzystać ze wspólnego namespace w `Store`, np. `(tenant_id, user_id, "memories")`. Checkpointer odpowiada na pytanie "gdzie zatrzymał się ten workflow?", a `Store` na pytanie "co system powinien pamiętać o tym użytkowniku lub organizacji?".
+
+   Przykład:
+
+   ```python
+   namespace = (tenant_id, user_id, "memories")
+
+   runtime.store.put(namespace, "preferred_language", {"value": "pl"})
+   memories = runtime.store.search(namespace, query="język odpowiedzi")
+   ```
 
 5. Jak zaprojektować namespace pamięci długoterminowej per użytkownik, organizację lub tenant, aby uniknąć mieszania danych między użytkownikami?
 
@@ -286,6 +521,25 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    **Odpowiedź:** `context_schema` definiuje typ kontekstu runtime'u przekazywanego do grafu przy wywołaniu. Ten kontekst nie jest stanem workflow i nie powinien być traktowany jak dane generowane przez model. Przechowuje informacje środowiskowe: `user_id`, `tenant_id`, role, uprawnienia, wariant eksperymentu, identyfikator requestu lub uchwyty do usług.
 
    `Runtime` jest obiektem wstrzykiwanym do węzłów. Pozwala odczytać `runtime.context` i korzystać z `runtime.store`, jeżeli graf został skompilowany ze store'em. Dzięki temu węzeł może np. pobrać `user_id`, zbudować namespace pamięci długoterminowej i wykonać `runtime.store.search(...)`. To bezpieczniejsze niż wkładanie identyfikatorów i sekretów do promptu, bo logika autoryzacyjna pozostaje w kodzie.
+
+   Przykład:
+
+   ```python
+   from dataclasses import dataclass
+   from langgraph.runtime import Runtime
+
+   @dataclass
+   class Context:
+       user_id: str
+       tenant_id: str
+
+   def load_preferences(state: dict, runtime: Runtime[Context]):
+       namespace = (runtime.context.tenant_id, runtime.context.user_id, "prefs")
+       prefs = runtime.store.search(namespace, query="response preferences")
+       return {"preferences": [item.value for item in prefs]}
+
+   builder = StateGraph(State, context_schema=Context)
+   ```
 
 7. Kiedy użyłbyś automatycznego podsumowywania historii, np. middleware do summarization, a kiedy jawnego przycinania lub selekcji wiadomości?
 
@@ -309,6 +563,28 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    Modelowanie agenta jako maszyny stanów daje kontrolę nad tym, co może się wydarzyć po każdym kroku. Zamiast ukrytej pętli agenta mamy jawne przejścia, warunki zakończenia, retry, punkty zatwierdzenia, gałęzie równoległe i ograniczenia. To ułatwia debugowanie, testowanie, audyt, wznowienie po awarii i wdrożenie w produkcji.
 
+   Przykład:
+
+   ```python
+   from typing import TypedDict
+   from langgraph.graph import StateGraph, START, END
+
+   class SupportState(TypedDict):
+       ticket: str
+       category: str
+
+   def classify(state: SupportState):
+       return {"category": "billing"}
+
+   graph = (
+       StateGraph(SupportState)
+       .add_node("classify", classify)
+       .add_edge(START, "classify")
+       .add_edge("classify", END)
+       .compile()
+   )
+   ```
+
 2. Z jakich trzech kluczowych komponentów składa się graf w LangGraph? Opisz rolę Nodes (Węzły), Edges (Krawędzie) i obiektu State (Stan).
 
    **Odpowiedź:** `State` to wspólny obiekt danych grafu. Zawiera wiadomości, pola domenowe, wyniki narzędzi, decyzje routingu, statusy i artefakty. Schemat stanu definiuje, jakie dane mogą istnieć w workflow i jak są łączone aktualizacje.
@@ -323,11 +599,44 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    Dla list, wiadomości i wyników z równoległych gałęzi często potrzebne jest dopisywanie zamiast nadpisywania. Przykładowo `Annotated[list, operator.add]` oznacza, że lista zwrócona przez węzeł zostanie dodana do istniejącej listy. Dla wiadomości używa się zwykle `add_messages`, który obsługuje dopisywanie wiadomości i aktualizację po identyfikatorach. Bez poprawnego reducera równoległe gałęzie mogłyby nadpisywać swoje wyniki albo kasować historię rozmowy.
 
+   Przykład:
+
+   ```python
+   import operator
+   from typing import Annotated, TypedDict
+   from langgraph.graph.message import add_messages
+
+   class State(TypedDict):
+       messages: Annotated[list, add_messages]
+       summaries: Annotated[list[str], operator.add]
+       status: str  # nadpisywane przez ostatnią aktualizację
+   ```
+
 4. Co to są "Conditional Edges" i do czego służą w sterowaniu przepływem oraz routingu logiki w LangGraph?
 
    **Odpowiedź:** Conditional edges to krawędzie wybierane w runtime na podstawie stanu grafu. Funkcja routingu czyta stan i zwraca nazwę następnego węzła, listę węzłów lub specjalne zakończenie. Dzięki temu graf może podejmować decyzje zależne od klasyfikacji modelu, wyniku narzędzia, liczby prób, statusu walidacji albo decyzji użytkownika.
 
    Używa się ich do agentowej pętli model-narzędzie, routerów intencji, obsługi błędów, eskalacji do człowieka, wyboru eksperta, zakończenia workflow i kontroli retry. Dobrą praktyką jest, aby funkcja routingu zwracała ograniczony zestaw wartości, np. `Literal["search", "answer", "human_review", "__end__"]`, bo ułatwia to testowanie i wizualizację grafu.
+
+   Przykład:
+
+   ```python
+   from typing import Literal
+   from langgraph.graph import END
+
+   def route(state: State) -> Literal["search", "answer", "__end__"]:
+       if state.get("final_answer"):
+           return "__end__"
+       if state.get("needs_search"):
+           return "search"
+       return "answer"
+
+   builder.add_conditional_edges(
+       "router",
+       route,
+       {"search": "search", "answer": "answer", "__end__": END},
+   )
+   ```
 
 5. Czym różni się `MessagesState` od własnego `TypedDict` lub klasy stanu z dodatkowymi polami domenowymi?
 
@@ -347,11 +656,37 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    Warto użyć `Command`, gdy decyzja o następnym kroku powstaje naturalnie wewnątrz węzła, np. supervisor wybiera następnego agenta, węzeł walidacji kieruje do poprawy lub zakończenia, a human-review kieruje do `proceed` albo `cancel`. Osobna funkcja routingu jest lepsza, gdy routing ma być czysto deterministyczny, prosty i oddzielony od obliczeń węzła.
 
+   Przykład:
+
+   ```python
+   from typing import Literal
+   from langgraph.types import Command
+
+   def validate(state: State) -> Command[Literal["fix", "send"]]:
+       if state["risk_score"] > 0.7:
+           return Command(goto="fix", update={"status": "needs_fix"})
+       return Command(goto="send", update={"status": "validated"})
+   ```
+
 8. Czym jest `Send` i jak wykorzystać go do dynamicznego fan-out, np. przetwarzania listy dokumentów lub zadań równolegle?
 
    **Odpowiedź:** `Send` reprezentuje dynamiczne wysłanie pracy do węzła z osobnym payloadem. Funkcja routingu może zwrócić listę `Send`, np. po jednym dla każdego dokumentu. LangGraph uruchamia wtedy wiele wywołań węzła, a ich wyniki są łączone przez reduktory w stanie nadrzędnym.
 
    Przykład zastosowania: stan zawiera listę dokumentów, funkcja `map_documents` zwraca `[Send("summarize_doc", {"doc": doc}) for doc in state["docs"]]`, a węzeł `summarize_doc` zwraca `{"summaries": [summary]}`. Pole `summaries` powinno mieć reducer dopisujący listy. To wzorzec map-reduce: fan-out przetwarza elementy równolegle, fan-in agreguje wyniki w kolejnym węźle.
+
+   Przykład:
+
+   ```python
+   from langgraph.types import Send
+
+   def map_documents(state: State):
+       return [Send("summarize_doc", {"doc": doc}) for doc in state["docs"]]
+
+   def summarize_doc(state: dict):
+       return {"summaries": [summarize(state["doc"])]}
+
+   builder.add_conditional_edges("map", map_documents, ["summarize_doc"])
+   ```
 
 9. Czym różni się Graph API od Functional API (`@entrypoint`, `@task`) i jak wybrać właściwe API dla danego workflow?
 
@@ -373,11 +708,39 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    `InMemorySaver` zapisuje dane w pamięci procesu i nadaje się do testów oraz prototypów. `SqliteSaver` zapisuje stan w SQLite, co jest dobre dla lokalnych aplikacji i prostych wdrożeń. `PostgresSaver` jest typowym wyborem produkcyjnym, bo daje trwałość, współdzielenie między instancjami, backupy i lepszą kontrolę operacyjną.
 
+   Przykład:
+
+   ```python
+   from langgraph.checkpoint.memory import InMemorySaver
+
+   graph = builder.compile(checkpointer=InMemorySaver())
+   config = {"configurable": {"thread_id": "ticket-123"}}
+
+   graph.invoke({"messages": [{"role": "user", "content": "Start"}]}, config)
+   graph.invoke({"messages": [{"role": "user", "content": "Kontynuuj"}]}, config)
+   ```
+
 2. Jak zaimplementować wzorzec "Human-in-the-loop" (HITL) w LangGraph wykorzystując `interrupt()` oraz statyczne punkty wstrzymania działania (`interrupt_before`, `interrupt_after`)?
 
    **Odpowiedź:** Dynamiczny HITL implementuje się przez wywołanie `interrupt(payload)` wewnątrz węzła lub narzędzia. Graf zapisuje stan przez checkpointer, przerywa wykonanie i zwraca do aplikacji `__interrupt__` z payloadem do pokazania w UI. Po decyzji człowieka backend wznawia ten sam `thread_id` przez `Command(resume=...)`.
 
    Statyczne punkty wstrzymania ustawia się przy kompilacji lub uruchomieniu grafu, np. `interrupt_before=["send_email"]` albo `interrupt_after=["draft_response"]`. Są dobre, gdy chcemy zawsze zatrzymać graf przed lub po konkretnym węźle bez wpisywania `interrupt()` w logice węzła. Dynamiczne `interrupt()` jest lepsze, gdy decyzja o pauzie zależy od danych, ryzyka, kwoty, typu akcji albo wyniku modelu.
+
+   Przykład:
+
+   ```python
+   from langgraph.types import Command, interrupt
+
+   def approve_payment(state: State):
+       decision = interrupt({
+           "action": "approve_payment",
+           "amount": state["amount"],
+           "currency": state["currency"],
+       })
+       return {"approved": decision["approved"]}
+
+   graph.invoke(Command(resume={"approved": True}), config)
+   ```
 
 3. W jaki sposób, używając API LangGraph (np. poprzez state update), można zmodyfikować stan grafu (podmienić wynik narzędzia lub zaktualizować dane autoryzacyjne) w trakcie, gdy graf jest spauzowany?
 
@@ -385,11 +748,37 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    Przykłady: człowiek poprawia treść e-maila przed wysłaniem, administrator podmienia błędny wynik narzędzia, backend odświeża token dostępu albo ustawia `approval_status="approved"`. Należy aktualizować tylko pola przewidziane w schemacie stanu i logować, kto wprowadził zmianę. Dla danych autoryzacyjnych lepiej przechowywać referencję lub status niż sekrety w stanie.
 
+   Przykład:
+
+   ```python
+   state = graph.get_state(config)
+   print(state.next)
+
+   graph.update_state(
+       config,
+       {"draft_email": corrected_body, "reviewed_by": "user-123"},
+   )
+   graph.invoke(Command(resume={"approved": True}), config)
+   ```
+
 4. Jak obsługiwane jest zagadnienie powrotu wstecz (Time Travel) w grafie przy wykorzystaniu zapisanego stanu checkpointera?
 
    **Odpowiedź:** Time travel polega na użyciu historii checkpointów zapisanych przez checkpointer. `get_state_history(config)` pozwala zobaczyć kolejne zapisane stany wątku. Można wybrać wcześniejszy checkpoint i wznowić wykonanie od tego miejsca albo utworzyć fork przez `update_state` na bazie wcześniejszej konfiguracji.
 
    To przydatne do debugowania, replayu błędnego przebiegu, testowania alternatywnych decyzji i ręcznej korekty workflow. Trzeba pamiętać, że ponowne wykonanie od wcześniejszego checkpointu może ponownie uruchomić węzły. Dlatego operacje zewnętrzne muszą być idempotentne albo zabezpieczone przed powtórzeniem.
+
+   Przykład:
+
+   ```python
+   history = list(graph.get_state_history(config))
+   before_tool = next(s for s in history if s.next == ("call_tool",))
+
+   fork_config = graph.update_state(
+       before_tool.config,
+       {"tool_result": {"status": "manually_corrected"}},
+   )
+   graph.invoke(None, fork_config)
+   ```
 
 5. Czym różnią się dynamiczne interrupcje wywoływane przez `interrupt()` od statycznych przerw ustawianych przy kompilacji lub uruchomieniu grafu?
 
@@ -402,6 +791,18 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    **Odpowiedź:** Po interrupcie graf jest zapisany w checkpointerze pod tym samym `thread_id`. Backend wywołuje graf ponownie z `Command(resume=payload)` i tą samą konfiguracją. Wartość `payload` trafia jako wynik wcześniejszego `interrupt()` i pozwala węzłowi kontynuować logikę.
 
    UI powinno przekazać minimalny, strukturalny wynik decyzji: `approved: bool`, ewentualnie poprawione argumenty, komentarz osoby zatwierdzającej, identyfikator approvala i wersję danych, które użytkownik widział. Nie należy przesyłać wyłącznie wolnego tekstu, jeżeli workflow wymaga jednoznacznej decyzji. Backend powinien sprawdzić uprawnienia osoby zatwierdzającej przed wznowieniem.
+
+   Przykład:
+
+   ```python
+   resume_payload = {
+       "approved": True,
+       "approval_id": "appr-789",
+       "edited_subject": "Potwierdzenie spotkania",
+   }
+
+   result = graph.invoke(Command(resume=resume_payload), config)
+   ```
 
 7. Jak użyć `get_state`, `get_state_history` i `update_state` do inspekcji, debugowania, time travel lub korekty stanu produkcyjnego wątku?
 
@@ -435,6 +836,20 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
 
    W LangGraph supervisor jest zwykle węzłem w `StateGraph`. Może zwracać `Command(goto=..., update=...)` albo zapisywać decyzję do stanu, a routing odbywa się przez conditional edges. Taki układ pozwala kontrolować pętle, limity, stan wspólny, prywatne artefakty agentów, audyt decyzji i human-in-the-loop.
 
+   Przykład:
+
+   ```python
+   from typing import Literal
+   from langgraph.types import Command
+
+   def supervisor(state: TeamState) -> Command[Literal["researcher", "writer", "__end__"]]:
+       if state.get("final_report"):
+           return Command(goto="__end__")
+       if not state.get("research"):
+           return Command(goto="researcher", update={"last_decision": "need_research"})
+       return Command(goto="writer", update={"last_decision": "write_report"})
+   ```
+
 2. Wymień inne wzorce systemów wieloagentowych (np. Network, Hierarchical Teams, Worker/Manager). Jak zdecydować, który wariant jest najlepszy dla danego przypadku biznesowego?
 
    **Odpowiedź:** Typowe wzorce to:
@@ -459,6 +874,21 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    **Odpowiedź:** Najpierw zdefiniowałbym stan z polami wejściowymi, listą zadań i polami wynikowymi z reducerami, np. `results: Annotated[list, operator.add]`. Węzeł planujący tworzyłby zadania lub wybierał agentów. Następnie conditional edge zwracałby listę `Send`, po jednym dla każdego agenta lub elementu pracy.
 
    Każdy worker dostaje własny payload i zwraca wynik w ustandaryzowanym formacie, np. `{agent_name, status, answer, evidence, errors}`. Fan-in realizuje reducer oraz węzeł agregujący, który sprawdza kompletność, konflikty i jakość wyników. Dla produkcji dodałbym timeouty, limity współbieżności, retry per worker, obsługę częściowych wyników i regułę, kiedy agregator może zakończyć mimo błędu jednego agenta.
+
+   Przykład:
+
+   ```python
+   from langgraph.types import Send
+
+   def fan_out(state: TeamState):
+       return [
+           Send("worker", {"agent": agent, "task": state["task"]})
+           for agent in ["legal", "finance", "technical"]
+       ]
+
+   def worker(state: dict):
+       return {"results": [run_agent(state["agent"], state["task"])]}
+   ```
 
 5. Czym różni się przekazanie sterowania między agentami (handoff) od wywołania agenta jako narzędzia przez supervisora?
 
@@ -499,6 +929,21 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Streaming grafu pokazuje przebieg aplikacji jako zdarzenia lub aktualizacje stanu. Można streamować pełne wartości stanu, przyrostowe aktualizacje po węzłach, tokeny z wywołań LLM, własne komunikaty postępu i eventy runtime'u. Backend musi więc rozdzielić dwa kontrakty: prezentację odpowiedzi użytkownikowi i obserwowalność procesu.
 
    W produkcji trzeba zaprojektować identyfikatory runów, kolejność eventów, obsługę reconnectu, anulowanie requestu, backpressure, limity czasu, rozróżnienie eventów publicznych i prywatnych oraz format błędów. Frontend nie powinien dostawać surowego stanu grafu, jeżeli zawiera sekrety, wyniki narzędzi, dane diagnostyczne albo instrukcje systemowe.
+
+   Przykład:
+
+   ```python
+   for mode, chunk in graph.stream(
+       {"messages": [{"role": "user", "content": "Sprawdź status"}]},
+       config=config,
+       stream_mode=["updates", "messages"],
+   ):
+       if mode == "messages":
+           send_to_ui({"type": "message_delta", "data": chunk})
+       elif mode == "updates":
+           send_to_ui({"type": "node_update", "data": public_only(chunk)})
+   ```
+
 2. Czym jest LangSmith i do jakich kluczowych zadań wykorzystuje się go w środowisku produkcyjnym i developerskim aplikacji LLM?
 
    **Odpowiedź:** LangSmith to platforma do obserwowalności, debugowania, testowania i ewaluacji aplikacji LLM. Zbiera trace'y wywołań modeli, promptów, narzędzi, retrieverów, grafów i agentów, dzięki czemu można zobaczyć pełną ścieżkę wykonania zamiast tylko finalnej odpowiedzi.
@@ -513,6 +958,20 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Następnie przeanalizowałbym trace w LangSmith i stream `updates` albo eventy grafu: które węzły powtarzają się, jakie wiadomości dopisują, czy model zwraca puste `AIMessage`, czy router nie ma ścieżki do `END`, czy narzędzie zwraca pustą obserwację, czy warunek kontynuacji opiera się na błędnym polu stanu.
 
    Naprawa powinna obejmować jawne warunki zakończenia, walidację pustych wiadomości, licznik iteracji w stanie, limit tool calli, fallback po kilku nieudanych próbach i test regresyjny dla scenariusza pętli. W multi-agent należy też limitować handoffy między agentami.
+
+   Przykład:
+
+   ```python
+   try:
+       graph.invoke(
+           {"messages": [{"role": "user", "content": "Rozwiąż zadanie"}]},
+           config={"configurable": {"thread_id": "debug-1"}, "recursion_limit": 25},
+       )
+   except Exception as exc:
+       state = graph.get_state({"configurable": {"thread_id": "debug-1"}})
+       print(state.next, exc)
+   ```
+
 4. Jak przetestowałbyś deterministycznie (jednostkowo/integracyjnie) aplikację LLM z wykorzystaniem LangChain i ewaluatorów w LangSmith?
 
    **Odpowiedź:** Testy jednostkowe powinny izolować logikę od niedeterminizmu modelu. Modele zastąpiłbym fake chat modelami lub stubami zwracającymi znane wiadomości, tool calle i błędy. Narzędzia zastąpiłbym mockami. Sprawdzałbym format stanu, routing, walidację structured output, obsługę wyjątków, limity retry i to, czy graf dochodzi do `END`.
@@ -520,6 +979,20 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Testy integracyjne uruchamiałbym na małym zestawie scenariuszy z deterministycznymi wejściami i kontrolowanymi odpowiedziami zależności zewnętrznych. Dla agentów z narzędziami oceniałbym nie tylko finalny tekst, ale też trajektorię: wybrane narzędzia, argumenty, kolejność kroków, liczbę iteracji, brak nieautoryzowanych akcji i poprawną obsługę interrupcji.
 
    W LangSmith utworzyłbym dataset z wejściami, oczekiwanymi odpowiedziami i metadanymi przypadków. Następnie uruchamiałbym `evaluate` z ewaluatorami deterministycznymi, np. exact match, schema match, sprawdzenie cytowań, sprawdzenie tool calli, oraz z ewaluatorami LLM-as-judge tam, gdzie potrzeba oceny semantycznej. Każdy eksperyment powinien mieć metadane: wersję modelu, promptu, grafu, narzędzi i konfiguracji.
+
+   Przykład:
+
+   ```python
+   def test_router_goes_to_billing():
+       state = {"messages": [], "category": "billing"}
+       assert route(state) == "billing_agent"
+
+   def test_graph_ends_with_fake_model(fake_model):
+       app = build_graph(model=fake_model)
+       result = app.invoke({"messages": [{"role": "user", "content": "hi"}]})
+       assert result["final_answer"]
+   ```
+
 5. Czym różnią się tryby streamingu `values`, `updates`, `messages` i strumieniowanie eventów? Który tryb wybrałbyś dla UI czatu, a który dla debugowania grafu?
 
    **Odpowiedź:** `values` zwraca pełny snapshot stanu po kolejnych krokach grafu. Jest czytelny przy małych stanach, ale może być ciężki i ryzykowny, gdy stan zawiera dużo danych lub pola wewnętrzne.
@@ -529,6 +1002,17 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    `messages` streamuje fragmenty wiadomości z wywołań modelu, zwykle tokeny lub chunki wraz z metadanymi. To najlepszy wybór dla UI czatu, gdy użytkownik ma widzieć generowaną odpowiedź na żywo.
 
    Strumieniowanie eventów daje najniższopoziomowy obraz wykonania: starty i końce komponentów, stream modelu, błędy, callbacki i zdarzenia zagnieżdżonych runnable. Wybrałbym je do debugowania, audytu i narzędzi deweloperskich. Dla użytkownika końcowego udostępniłbym przefiltrowany strumień `messages` oraz wybrane, publiczne zdarzenia postępu.
+
+   Przykład:
+
+   ```python
+   for chunk in graph.stream(input_state, config=config, stream_mode="updates"):
+       print("node update:", chunk)
+
+   for token, metadata in graph.stream(input_state, config=config, stream_mode="messages"):
+       print(token.content, end="")
+   ```
+
 6. Jak zaprojektować kontrakt API między backendem uruchamiającym graf a frontendem obsługującym streaming, interrupcje i wznowienia?
 
    **Odpowiedź:** Kontrakt powinien opierać się na stabilnych identyfikatorach: `thread_id`, `run_id`, opcjonalnie `checkpoint_id` i `interrupt_id`. Frontend wysyła wejście użytkownika oraz identyfikator rozmowy, a backend mapuje je na autoryzowany `thread_id`. Klient nie powinien móc przejąć cudzego wątku przez podanie dowolnego identyfikatora.
@@ -543,6 +1027,20 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Nazwane grafy pozwalają wdrożyć kilka workflow w jednej aplikacji i uruchamiać je przez stabilny identyfikator, bez ujawniania struktury plików klientowi. Deployment ładuje grafy, kompiluje je z odpowiednią konfiguracją i udostępnia przez API.
 
    Przez SDK klient tworzy lub wybiera wątek, uruchamia run dla konkretnego asystenta/grafu, przekazuje input, config i stream mode, a następnie odbiera wynik lub eventy streamingu. W produkcji SDK powinien być używany przez backend lub zaufany serwis, jeżeli run wymaga sekretów, autoryzacji albo kontroli tenantów.
+
+   Przykład:
+
+   ```json
+   {
+     "dependencies": ["."],
+     "graphs": {
+       "support_agent": "./src/support/graph.py:graph",
+       "research_agent": "./src/research/graph.py:graph"
+     },
+     "env": ".env"
+   }
+   ```
+
 8. Jak monitorować koszt, latency, liczbę tool calli, retry, interrupcje i błędy w produkcyjnej aplikacji agentowej?
 
    **Odpowiedź:** Każdy run powinien mieć trace z `run_id`, `thread_id`, `user_id` lub `tenant_id`, wersją grafu, modelem, promptem, narzędziami i konfiguracją. LangSmith może zbierać trace'y modeli, narzędzi i grafu, a metadane pozwalają agregować wyniki po tenantach, wersjach i eksperymentach.
@@ -588,6 +1086,25 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    `ToolStrategy` reprezentuje odpowiedź strukturalną jako wywołanie narzędzia. Działa z modelami wspierającymi tool calling, nawet gdy nie mają natywnego structured output. Jest bardziej przenośna między providerami, ale przechodzi przez mechanizm tool calli i może wymagać retry, gdy model wywoła zły schemat, wiele schematów albo poda niepoprawne argumenty.
 
    Wybór wpływa na kompatybilność modeli, niezawodność walidacji, format trace'ów i sposób obsługi błędów. Dla modeli z natywnym structured output wybrałbym `ProviderStrategy`. Dla przenośności i modeli bez natywnego wsparcia użyłbym `ToolStrategy`.
+
+   Przykład:
+
+   ```python
+   from pydantic import BaseModel
+   from langchain.agents import create_agent
+   from langchain.agents.structured_output import ToolStrategy
+
+   class Contact(BaseModel):
+       name: str
+       email: str
+
+   agent = create_agent(
+       model="openai:gpt-4.1-mini",
+       tools=[],
+       response_format=ToolStrategy(Contact),
+   )
+   ```
+
 2. Jak obsłużyć sytuację, w której model zwraca wiele strukturalnych odpowiedzi, niezgodny schemat lub brak wymaganych pól?
 
    **Odpowiedź:** Schemat powinien być walidowany po stronie aplikacji przez Pydantic, TypedDict albo JSON Schema. Jeżeli model zwraca wiele strukturalnych odpowiedzi, należy uznać to za błąd kontraktu, przekazać modelowi kontrolowany feedback i wykonać ograniczony retry. `ToolStrategy` ma mechanizmy obsługi błędów, które mogą zwrócić modelowi informację o naruszeniu schematu i wymusić poprawkę.
@@ -602,6 +1119,35 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Pipeline odpowiedzi obejmuje przyjęcie pytania, ewentualną reformulację zapytania, retrieval, filtrowanie metadata, reranking, kompresję kontekstu, generation i walidację odpowiedzi. Każdy etap powinien mieć osobny kontrakt wejścia i wyjścia, żeby można go testować i wymieniać bez przepisywania całości.
 
    W LangChain naturalny podział to loadery dokumentów, splittery, modele embeddingowe, vector store, retriever, opcjonalny reranker lub compressor, prompt i model generujący. W produkcji trzeba przechowywać `document_id`, `chunk_id`, wersję embeddingów, źródło, timestamp, tenant i uprawnienia dostępu.
+
+   Przykład:
+
+   ```python
+   from langchain_core.prompts import ChatPromptTemplate
+   from langchain_core.output_parsers import StrOutputParser
+   from langchain_core.runnables import RunnableLambda
+
+   retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+
+   def format_docs(docs):
+       return "\n\n".join(doc.page_content for doc in docs)
+
+   prompt = ChatPromptTemplate.from_messages([
+       ("system", "Odpowiadaj tylko na podstawie kontekstu."),
+       ("user", "Pytanie: {question}\n\nKontekst:\n{context}"),
+   ])
+
+   rag_chain = (
+       {
+           "context": RunnableLambda(lambda x: x["question"]) | retriever | RunnableLambda(format_docs),
+           "question": RunnableLambda(lambda x: x["question"]),
+       }
+       | prompt
+       | model
+       | StrOutputParser()
+   )
+   ```
+
 4. Czym różni się retriever od vector store i dlaczego w aplikacji produkcyjnej często potrzebne są filtry metadata, hybrid search lub reranking?
 
    **Odpowiedź:** Vector store to magazyn wektorów i dokumentów umożliwiający podobieństwo semantyczne. Retriever to interfejs pobierania dokumentów dla zapytania. Retriever może korzystać z vector store, wyszukiwarki tekstowej, bazy SQL, API zewnętrznego, hybrydy kilku źródeł albo logiki domenowej.
@@ -609,6 +1155,20 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Filtry metadata są potrzebne do bezpieczeństwa i trafności: tenant, użytkownik, język, typ dokumentu, data, produkt, region, status publikacji i uprawnienia. Bez filtrów retriever może zwrócić dokumenty z niepoprawnego kontekstu biznesowego lub cudze dane.
 
    Hybrid search łączy wyszukiwanie semantyczne z leksykalnym, np. BM25, co poprawia wyniki dla kodów, nazw własnych, numerów faktur, skrótów i terminów domenowych. Reranking ocenia małą pulę kandydatów dokładniejszym modelem i poprawia kolejność dokumentów, zwłaszcza gdy pierwszy retrieval ma wysoki recall, ale słabą precyzję.
+
+   Przykład:
+
+   ```python
+   retriever = vector_store.as_retriever(
+       search_kwargs={
+           "k": 8,
+           "filter": {"tenant_id": tenant_id, "status": "published"},
+       }
+   )
+
+   docs = retriever.invoke("warunki wypowiedzenia umowy")
+   ```
+
 5. Jak ocenić jakość RAG: retrieval recall, faithfulness, groundedness, citation accuracy i odporność na prompt injection w dokumentach?
 
    **Odpowiedź:** Retrieval recall mierzy, czy w pobranych dokumentach znalazł się fragment potrzebny do odpowiedzi. Wymaga datasetu z pytaniami i referencyjnymi dokumentami lub chunkami. Można mierzyć recall@k, MRR i nDCG.
@@ -647,6 +1207,19 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Middleware rozwiązuje problemy produkcyjne przekrojowe: logowanie, tracing, redakcję PII, kontrolę kosztów, dynamiczny wybór modelu, rate limiting, fallbacki, walidację polityk, guardrails, podsumowywanie konwersacji, przycinanie kontekstu, obsługę błędów i eksperymenty A/B.
 
    Jest użyteczny, gdy ta sama reguła ma działać dla wielu agentów albo wielu wywołań. Nie powinien zastępować logiki domenowej grafu, bo ukryte decyzje w middleware utrudniają debugowanie przepływu.
+
+   Przykład:
+
+   ```python
+   from langchain.agents import create_agent
+
+   agent = create_agent(
+       model="openai:gpt-4.1-mini",
+       tools=[search_orders],
+       middleware=[redact_pii, enforce_budget, trace_request],
+   )
+   ```
+
 2. Jak zaimplementowałbyś middleware do logowania, redakcji danych wrażliwych, kontroli kosztów lub dynamicznego wyboru modelu?
 
    **Odpowiedź:** Middleware logujące powinno dodawać metadane do runu: `request_id`, `user_id`, `tenant_id`, wersję promptu, model, narzędzia i wariant eksperymentu. Nie powinno logować sekretów, tokenów OAuth, pełnych payloadów zewnętrznych API ani danych wrażliwych bez redakcji.
@@ -668,6 +1241,20 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Sekrety nie powinny trafiać do promptów, wiadomości, stanu grafu ani trace'ów. Graf powinien przechowywać referencję, np. `connection_id` lub `integration_id`, a narzędzie powinno pobierać aktualny sekret z vaulta, menedżera sekretów albo systemu OAuth w chwili wykonania.
 
    Parametry eksperymentu można zapisywać w metadata trace'ów i runtime context. Model może znać tylko te informacje, które wpływają na treść odpowiedzi. Informacje służące routingu, billingowi, autoryzacji i eksperymentom powinny pozostać po stronie aplikacji.
+
+   Przykład:
+
+   ```python
+   result = graph.invoke(
+       {"messages": [{"role": "user", "content": "Pokaż moje faktury"}]},
+       config={
+           "configurable": {"thread_id": thread_id},
+           "metadata": {"tenant_id": tenant_id, "experiment": "router-v2"},
+       },
+       context=Context(user_id=user_id, tenant_id=tenant_id),
+   )
+   ```
+
 5. Jak zaprojektować aplikację LangChain/LangGraph, aby łatwo wymieniać dostawcę modelu bez przepisywania logiki narzędzi, pamięci i ewaluacji?
 
    **Odpowiedź:** Logika domenowa powinna zależeć od interfejsu modelu czatowego, a nie od konkretnego SDK providera. Tworzenie modelu należy zamknąć w fabryce lub adapterze konfigurowanym przez środowisko. Narzędzia powinny mieć schematy niezależne od providera, a structured output powinien używać wspólnych modeli Pydantic, TypedDict albo JSON Schema.
@@ -675,6 +1262,22 @@ W repozytorium znajduje się wiele notatek rozwijających poniższe tematy, np.:
    Trzeba zdefiniować minimalny kontrakt funkcji modelu: tool calling, streaming, structured output, multimodalność, maksymalny kontekst, obsługa system messages i format token usage. Jeżeli różni providerzy mają różne możliwości, adapter powinien jawnie zgłaszać brak wsparcia albo przełączać strategię, np. z `ProviderStrategy` na `ToolStrategy`.
 
    Pamięć, checkpointery, retrievery i ewaluacje powinny być niezależne od modelu. Testy kontraktowe powinny sprawdzać, czy nowy model poprawnie zwraca tool calle, respektuje schematy, działa ze streamingiem, mieści się w budżecie i nie pogarsza wyników na datasetach LangSmith.
+
+   Przykład:
+
+   ```python
+   from langchain.chat_models import init_chat_model
+
+   def build_model(provider: str, quality: str):
+       if provider == "openai":
+           return init_chat_model("openai:gpt-4.1-mini" if quality == "fast" else "openai:gpt-4.1")
+       if provider == "anthropic":
+           return init_chat_model("anthropic:claude-3-5-sonnet-latest")
+       raise ValueError(f"Unsupported provider: {provider}")
+
+   model = build_model(settings.provider, settings.quality)
+   ```
+
 6. Jakie elementy aplikacji agentowej powinny być konfigurowalne per środowisko, tenant lub eksperyment A/B?
 
    **Odpowiedź:** Per środowisko należy konfigurować modele, endpointy providerów, klucze, tracing, poziom logowania, checkpointer, store, bazy danych, limity rate, timeouty, retry, flagi debugowania i tryb korzystania z narzędzi zewnętrznych.

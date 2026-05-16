@@ -2,6 +2,7 @@
 
 ## Python
 
+- [typy-float-double-w-python](Python/typy-float-double-w-python.md)
 - [tail-recursion-w-pythonie](Python/tail-recursion-w-pythonie.md)
 - [literal-i-field-w-pydantic](Python/literal-i-field-w-pydantic.md)
 - [praca-z-regex-w-nowoczesnym-pythonie](Python/praca-z-regex-w-nowoczesnym-pythonie.md)
@@ -183,6 +184,9 @@
 
 ## AI
 
+- [wektorowe-bazy-danych-proste-vs-enterprise](AI/wektorowe-bazy-danych-proste-vs-enterprise.md)
+- [pytania-rekrutacyjne-langchain-langgraph](AI/pytania-rekrutacyjne-langchain-langgraph.md)
+- [pytania-rekrutacyjne-rag](AI/pytania-rekrutacyjne-rag.md)
 - [ai-bm25](AI/ai-bm25.md)
 - [projektowanie-memory-management-oraz-session-handling-dla-agentow-ai](AI/projektowanie-memory-management-oraz-session-handling-dla-agentow-ai.md)
 - [gpt-token-latency-analytics-guardrails-fuzzing-testing](AI/gpt-token-latency-analytics-guardrails-fuzzing-testing.md)
@@ -207,7 +211,6 @@
 - [create-agent-vs-react-agent](AI/create-agent-vs-react-agent.md)
 - [with_structured_output_vs_pydantic_parser](AI/with_structured_output_vs_pydantic_parser.md)
 - [wzorce-projektowe-systemow-agentowych](AI/wzorce-projektowe-systemow-agentowych.md)
-- [pytania-rekrutacyjne-rag](AI/pytania-rekrutacyjne-rag.md)
 - [rag-tabele-czy-model-czy-preprocesor](AI/rag-tabele-czy-model-czy-preprocesor.md)
 - [repozytorium-datasetow-oraz-wersjonowanie-danych](AI/repozytorium-datasetow-oraz-wersjonowanie-danych.md)
 - [structured-output-z-llm](AI/structured-output-z-llm.md)
@@ -386,8 +389,9 @@
 
 ## Java
 
-- [pytania-rekrutacyjne-java-senior](Java/pytania-rekrutacyjne-java-senior.md)
+- [pytania-rekrutacyjne-jvm](Java/pytania-rekrutacyjne-jvm.md)
 - [pytania-rekrutacyjne-spring-3-0](Java/pytania-rekrutacyjne-spring-3-0.md)
+- [pytania-rekrutacyjne-java-senior](Java/pytania-rekrutacyjne-java-senior.md)
 - [w-java-wymień-struktury-danych-oparte-na-technice-haszowania-zawartości-struktur](Java/w-java-wymie%C5%84-struktury-danych-oparte-na-technice-haszowania-zawarto%C5%9Bci-struktur.md)
 - [callbacki-w-java-podaj-zastosowania-i-przykłady-odpowiedz-wyczerpująco-i-technic](Java/callbacki-w-java-podaj-zastosowania-i-przyk%C5%82ady-odpowiedz-wyczerpuj%C4%85co-i-technic.md)
 - [java-użycie-funkcji-groupingby](Java/java-u%C5%BCycie-funkcji-groupingby.md)
