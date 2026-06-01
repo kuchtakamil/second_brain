@@ -465,14 +465,33 @@ Certyfikat zawiera m.in. nazwę podmiotu, klucz publiczny, okres ważności, iss
 
 CA, czyli Certificate Authority, potwierdza tożsamość podmiotu i podpisuje certyfikat. Klient nie ufa automatycznie każdemu certyfikatowi, tylko sprawdza podpisy, ważność certyfikatów, przeznaczenie certyfikatu i zgodność domeny. Jeżeli łańcuch jest niepełny, wygasły albo prowadzi do niezaufanego root CA, połączenie powinno zostać odrzucone.
 
-9. Czym jest **mutual TLS (mTLS)** i w jakich scenariuszach się go stosuje?
+9. Co dzieje się, gdy użytkownik wchodzi na stronę HTTPS i przeglądarka weryfikuje jej certyfikat?
+
+**Odpowiedź:**  
+Gdy użytkownik wpisuje np. `https://example.com`, przeglądarka najpierw zestawia połączenie z serwerem, a potem rozpoczyna TLS Handshake. W HTTPS/TLS standardowo używa się certyfikatów X.509. W `ClientHello` przeglądarka zwykle wysyła SNI, czyli nazwę domeny, z którą chce się połączyć. Dzięki temu serwer wie, który certyfikat X.509 powinien pokazać, nawet jeśli na tym samym adresie IP działa wiele domen.
+
+Serwer odsyła swój certyfikat X.509 oraz zwykle certyfikaty pośrednie tworzące łańcuch zaufania. Taki certyfikat zawiera m.in. domeny w polu SAN, klucz publiczny, wystawcę, okres ważności i podpis CA. Przeglądarka sprawdza kilka rzeczy:
+
+- czy domena z adresu strony pasuje do pola SAN w certyfikacie,
+- czy certyfikat jest ważny czasowo,
+- czy łańcuch certyfikatów prowadzi do zaufanego root CA z trust store przeglądarki lub systemu,
+- czy podpisy certyfikatów w łańcuchu są poprawne,
+- czy certyfikat ma właściwe przeznaczenie, np. server authentication,
+- czy użyte algorytmy i długości kluczy są akceptowalne,
+- opcjonalnie, czy certyfikat nie został unieważniony, np. przez OCSP stapling albo inne mechanizmy przeglądarki.
+
+Sama obecność poprawnego certyfikatu nie wystarcza. Serwer musi jeszcze udowodnić, że posiada klucz prywatny pasujący do klucza publicznego z certyfikatu. Robi to w handshaku przez podpisanie danych negocjacji, np. w komunikacie `CertificateVerify` w TLS 1.3.
+
+Jeżeli wszystkie sprawdzenia przejdą poprawnie, przeglądarka uznaje, że rozmawia z właściwą stroną, kończy handshake i zaczyna przesyłać dane HTTP przez szyfrowany kanał TLS. Jeśli któryś warunek nie przejdzie, np. certyfikat jest wygasły, wystawiony dla innej domeny albo pochodzi od niezaufanego CA, przeglądarka pokaże ostrzeżenie lub zablokuje połączenie.
+
+10. Czym jest **mutual TLS (mTLS)** i w jakich scenariuszach się go stosuje?
 
 **Odpowiedź:**  
 mTLS to wariant TLS, w którym nie tylko klient weryfikuje certyfikat serwera, ale także serwer weryfikuje certyfikat klienta. Dzięki temu obie strony są uwierzytelnione na poziomie kanału TLS.
 
 Stosuje się go często w komunikacji service-to-service, mikroserwisach, service mesh, integracjach B2B, dostępie do API o wysokim poziomie bezpieczeństwa oraz w systemach wewnętrznych, gdzie samo hasło albo token nie wystarcza. mTLS dobrze potwierdza tożsamość techniczną klienta, ale autoryzacja biznesowa nadal zwykle należy do aplikacji.
 
-10. Czym jest **certificate pinning** i jakie są jego zalety oraz wady?
+11. Czym jest **certificate pinning** i jakie są jego zalety oraz wady?
 
 **Odpowiedź:**  
 Certificate pinning polega na tym, że klient akceptuje tylko konkretny certyfikat, konkretny klucz publiczny albo wskazane CA, zamiast ufać całemu standardowemu zestawowi zaufanych CA. Najczęściej spotyka się to w aplikacjach mobilnych i klientach kontrolowanych przez właściciela systemu.
@@ -483,14 +502,36 @@ Zaletą jest ograniczenie skutków błędnie wydanego certyfikatu przez inne CA.
 
 ## 4. Szyfrowanie i bezpieczeństwo
 
-11. Czym jest **cipher suite** i z jakich elementów się składa? Podaj przykład nowoczesnego cipher suite.
+12. Czym jest **cipher suite** i z jakich elementów się składa? Podaj przykład nowoczesnego cipher suite.
 
 **Odpowiedź:**  
 Cipher suite to zestaw algorytmów kryptograficznych używanych przez TLS do ochrony połączenia. W TLS 1.2 nazwa cipher suite zwykle obejmuje wymianę kluczy, uwierzytelnienie, szyfrowanie symetryczne i funkcję skrótu, np. `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`.
 
 W TLS 1.3 cipher suites są prostsze, bo wymiana kluczy i uwierzytelnienie są negocjowane osobno. Przykład nowoczesnego cipher suite to `TLS_AES_128_GCM_SHA256` albo `TLS_CHACHA20_POLY1305_SHA256`. W praktyce preferuje się algorytmy AEAD, takie jak AES-GCM lub ChaCha20-Poly1305.
 
-12. Czym jest **Perfect Forward Secrecy (PFS)** i dlaczego jest ważne? Jakie algorytmy wymiany kluczy ją zapewniają?
+Krótko o najczęstszych skrótach:
+
+- **AES** - szybki symetryczny algorytm szyfrowania blokowego. Ten sam sekret służy do szyfrowania i odszyfrowania danych.
+- **GCM** - tryb pracy AES, który zapewnia jednocześnie szyfrowanie i sprawdzanie integralności danych. Dlatego AES-GCM jest algorytmem AEAD.
+- **SHA** - rodzina funkcji skrótu, np. SHA-256 albo SHA-384. W TLS służy m.in. do wyprowadzania kluczy i uwierzytelniania transkryptu handshaku.
+- **RSA** - algorytm kryptografii asymetrycznej. W nowoczesnym TLS używa się go głównie do podpisów certyfikatów lub handshaku, a nie do starego RSA key exchange.
+
+13. Jakie są najpopularniejsze **cipher suites w TLS 1.3** i czym się różnią?
+
+**Odpowiedź:**  
+W TLS 1.3 cipher suite opisuje głównie algorytm szyfrowania symetrycznego AEAD oraz funkcję skrótu używaną w key schedule. Nie zawiera już w nazwie wymiany kluczy ani algorytmu uwierzytelnienia, bo te elementy są negocjowane osobno.
+
+Najczęściej spotykane cipher suites w TLS 1.3 to:
+
+- `TLS_AES_128_GCM_SHA256` - bardzo popularny domyślny wybór. Używa AES-128 w trybie GCM i SHA-256. Daje dobrą wydajność, szczególnie na procesorach ze sprzętowym wsparciem AES-NI, i jest zwykle wystarczający dla większości systemów.
+- `TLS_AES_256_GCM_SHA384` - wariant z AES-256-GCM i SHA-384. Oferuje większy margines bezpieczeństwa kryptograficznego, ale może być wolniejszy od AES-128-GCM. Często wybierany w środowiskach o bardziej konserwatywnych wymaganiach bezpieczeństwa.
+- `TLS_CHACHA20_POLY1305_SHA256` - używa ChaCha20-Poly1305 i SHA-256. Jest bardzo dobry na urządzeniach bez sprzętowej akceleracji AES, np. części urządzeń mobilnych lub embedded. Często daje stabilną wydajność programową.
+- `TLS_AES_128_CCM_SHA256` - używa AES-128-CCM i SHA-256. Jest mniej popularny w typowym webie niż AES-GCM i ChaCha20-Poly1305, ale bywa stosowany w środowiskach constrained/IoT.
+- `TLS_AES_128_CCM_8_SHA256` - podobny do AES-128-CCM, ale z krótszym tagiem uwierzytelniającym. Daje mniejszy narzut, lecz słabszy margines integralności, dlatego jest niszowy i zwykle nie jest preferowany w standardowych systemach webowych.
+
+W praktyce dla serwisów internetowych najczęściej konfiguruje się pierwsze trzy: `TLS_AES_128_GCM_SHA256`, `TLS_AES_256_GCM_SHA384` i `TLS_CHACHA20_POLY1305_SHA256`. Wszystkie są AEAD, czyli jednocześnie zapewniają poufność i integralność danych. Wybór między nimi zależy głównie od polityki bezpieczeństwa, wymagań zgodności i wydajności na konkretnym sprzęcie.
+
+14. Czym jest **Perfect Forward Secrecy (PFS)** i dlaczego jest ważne? Jakie algorytmy wymiany kluczy ją zapewniają?
 
 **Odpowiedź:**  
 Perfect Forward Secrecy oznacza, że przechwycenie długoterminowego klucza prywatnego serwera w przyszłości nie pozwala odszyfrować wcześniej nagranych sesji TLS. Jest to ważne, bo atakujący może zapisywać ruch dzisiaj i próbować odszyfrować go dopiero po latach, gdy zdobędzie klucz prywatny.
@@ -501,21 +542,21 @@ PFS zapewniają efemeryczne mechanizmy Diffie-Hellmana, np. DHE, ECDHE oraz grup
 
 ## 5. Aspekty operacyjne i wdrożeniowe
 
-13. Czym jest **TLS termination** i w którym miejscu architektury najczęściej się ją stosuje? Jakie są kompromisy?
+15. Czym jest **TLS termination** i w którym miejscu architektury najczęściej się ją stosuje? Jakie są kompromisy?
 
 **Odpowiedź:**  
 TLS termination oznacza zakończenie połączenia TLS na konkretnym komponencie infrastruktury, np. load balancerze, reverse proxy, ingress controllerze albo API gatewayu. To ten komponent posiada certyfikat, wykonuje handshake i odszyfrowuje ruch.
 
 Zaletą jest prostsze zarządzanie certyfikatami, centralna konfiguracja TLS, łatwiejsze logowanie, routing i odciążenie aplikacji. Kompromis polega na tym, że za punktem terminacji ruch może iść dalej plaintextem, jeśli nie zostanie ponownie zaszyfrowany. W środowiskach o wyższych wymaganiach bezpieczeństwa często stosuje się TLS albo mTLS również między proxy a backendami.
 
-14. Jak działa **SNI (Server Name Indication)** i jaki problem rozwiązuje w kontekście hostowania wielu domen na jednym adresie IP?
+16. Jak działa **SNI (Server Name Indication)** i jaki problem rozwiązuje w kontekście hostowania wielu domen na jednym adresie IP?
 
 **Odpowiedź:**  
 SNI to rozszerzenie TLS, w którym klient podaje nazwę domeny już w `ClientHello`. Dzięki temu serwer może wybrać właściwy certyfikat zanim zakończy się handshake.
 
 Bez SNI serwer widziałby tylko adres IP i port, więc przy wielu domenach na jednym IP nie wiedziałby, który certyfikat pokazać. SNI umożliwia więc hostowanie wielu serwisów HTTPS na tym samym adresie IP. Jeśli klient nie wyśle SNI albo poda błędną nazwę, serwer może zwrócić certyfikat domyślny, który nie będzie pasował do oczekiwanej domeny.
 
-15. Jak monitorować i zarządzać **wygasaniem certyfikatów** w środowisku produkcyjnym? Czym jest **ACME / Let's Encrypt** i jak automatyzuje ten proces?
+17. Jak monitorować i zarządzać **wygasaniem certyfikatów** w środowisku produkcyjnym? Czym jest **ACME / Let's Encrypt** i jak automatyzuje ten proces?
 
 **Odpowiedź:**  
 Wygasanie certyfikatów warto monitorować automatycznie, np. przez alerty z systemu monitoringu, syntetyczne testy HTTPS, skanery certyfikatów, metryki z load balancerów oraz regularne sprawdzanie dat ważności dla domen publicznych i wewnętrznych. Alert powinien pojawić się z wyprzedzeniem, np. 30, 14 i 7 dni przed wygaśnięciem.

@@ -174,6 +174,16 @@ print(original)  # ([1, 2], [3, 4]) — NIEZMIENIONY
 print(deep)      # ([1, 2, 99], [3, 4])
 ```
 
+### Jak głęboko działa `deepcopy`? (Rekurencja i referencje cykliczne)
+
+Z definicji `copy.deepcopy()` działa **w pełni rekurencyjnie**. Oznacza to, że jeśli masz strukturę zagnieżdżoną na 10, 100 czy więcej poziomów w głąb (np. rozbudowane drzewo obiektów), `deepcopy` skopiuje je **wszystkie**, poziom po poziomie, aż dotrze do najniższych elementów (do obiektów niemutowalnych, takich jak `int` czy `str`). Kopiuje więc całe drzewo od korzenia aż po najdalsze liście.
+
+Ograniczeniem nie jest sama logika funkcji, lecz jedynie **systemowy limit rekurencji** w Pythonie (sprawdzany za pomocą `sys.getrecursionlimit()`, co domyślnie wynosi zazwyczaj 1000).
+
+Ważnym aspektem pod maską `deepcopy` jest użycie wewnętrznego **słownika `memo`** (pamięci podręcznej), który jest przekazywany i aktualizowany w trakcie całego procesu kopiowania. Rozwiązuje on dwa krytyczne problemy w przypadku rozbudowanych drzew czy grafów:
+1. **Referencje cykliczne (Circular references):** Jeśli obiekt A zawiera referencję do B, a obiekt B z powrotem do A, naiwna funkcja rekurencyjna wpadłaby w nieskończoną pętlę. Dzięki `memo`, `deepcopy` zapamiętuje unikalne identyfikatory (`id()`) oryginalnych obiektów, które już przetworzył. Kiedy napotka taki sam obiekt ponownie, wie, by użyć jego istniejącej już kopii zamiast kopiować go w kółko.
+2. **Współdzielone obiekty:** Jeśli ten sam obiekt podrzędny (np. ta sama instancja listy) występuje w strukturze kilkukrotnie, `deepcopy` upewnia się, że w nowej strukturze te referencje również będą wskazywać na **jeden i ten sam** skopiowany obiekt. Dzięki temu relacje między obiektami są idealnie odwzorowane.
+
 ---
 
 ## Porównanie — tabela

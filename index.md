@@ -2,13 +2,42 @@
 
 ## Python
 
+- [asyncio-cheatsheet](Python/asyncio-cheatsheet.md)
+- [konflikty-wersji-zaleznosci-i-pythonpath](Python/konflikty-wersji-zaleznosci-i-pythonpath.md)
+- [magiczne-metody-init-new-call-del](Python/magiczne-metody-init-new-call-del.md)
+- [czym-jest-slots-w-python](Python/czym-jest-slots-w-python.md)
+- [mro-w-pythonie-kolejnosc-wywolania-super](Python/mro-w-pythonie-kolejnosc-wywolania-super.md)
+- [pelny-przyklad-testu-z-mockowaniem-magicmock](Python/pelny-przyklad-testu-z-mockowaniem-magicmock.md)
+- [regex-cheatsheet](Python/regex-cheatsheet.md)
+- [roznica-miedzy-mypy-a-ruff](Python/roznica-miedzy-mypy-a-ruff.md)
+- [wyjaśnienie-defaultdict-w-pythonie](Python/wyja%C5%9Bnienie-defaultdict-w-pythonie.md)
+- [match-case-structural-pattern-matching](Python/match-case-structural-pattern-matching.md)
+- [dekorator-dataclass-metody-i-korzysci](Python/dekorator-dataclass-metody-i-korzysci.md)
+- [niemodyfikowalne-struktury-danych-w-pythonie](Python/niemodyfikowalne-struktury-danych-w-pythonie.md)
+- [struktury-oparte-na-hashowaniu](Python/struktury-oparte-na-hashowaniu.md)
+- [zaawansowane-struktury-danych](Python/zaawansowane-struktury-danych.md)
+- [dekoratory-na-interview](Python/dekoratory-na-interview.md)
+- [pakiety-wielowatkowosc-i-wieloprocesowosc](Python/pakiety-wielowatkowosc-i-wieloprocesowosc.md)
+- [jak-wczytac-10gb-plik-logow](Python/jak-wczytac-10gb-plik-logow.md)
+- [dlaczego-lista-nie-moze-byc-kluczem-w-slowniku](Python/dlaczego-lista-nie-moze-byc-kluczem-w-slowniku.md)
+- [co-to-jest-async-i-await](Python/co-to-jest-async-i-await.md)
+- [nonlocal-global-i-podobne](Python/nonlocal-global-i-podobne.md)
+- [asgi-i-wsgi](Python/asgi-i-wsgi.md)
+- [garbage-collector-w-pythonie](Python/garbage-collector-w-pythonie.md)
+- [context-manager-w-pythonie](Python/context-manager-w-pythonie.md)
+- [pola-klasy-vs-pola-instancji](Python/pola-klasy-vs-pola-instancji.md)
+- [deep-copy-vs-shallow-copy](Python/deep-copy-vs-shallow-copy.md)
+- [uzycie-super-w-pythonie](Python/uzycie-super-w-pythonie.md)
+- [chainmap-w-python](Python/chainmap-w-python.md)
+- [python-cheatsheet](Python/python-cheatsheet.md)
+- [kiedy-klasa-jest-iteratorem](Python/kiedy-klasa-jest-iteratorem.md)
+- [python-runtime-checkable](Python/python-runtime-checkable.md)
+- [unicode-grafemy-punkty-kodowe-bajty](Python/unicode-grafemy-punkty-kodowe-bajty.md)
 - [typy-float-double-w-python](Python/typy-float-double-w-python.md)
 - [tail-recursion-w-pythonie](Python/tail-recursion-w-pythonie.md)
 - [literal-i-field-w-pydantic](Python/literal-i-field-w-pydantic.md)
 - [praca-z-regex-w-nowoczesnym-pythonie](Python/praca-z-regex-w-nowoczesnym-pythonie.md)
-- [python-runtime-checkable](Python/python-runtime-checkable.md)
 - [sprawdzanie-wersji-bibliotek-w-python](Python/sprawdzanie-wersji-bibliotek-w-python.md)
-- [python-cheatsheet](Python/python-cheatsheet.md)
 - [uv-run-bez-aktywacji-venv](Python/uv-run-bez-aktywacji-venv.md)
 - [Mastering-asyncio-in-Python-A-Comprehensive-Guide-extended](Python/Mastering-asyncio-in-Python-A-Comprehensive-Guide-extended.md)
 - [generatory-yield-coroutine](Python/generatory-yield-coroutine.md)
@@ -20,7 +49,6 @@
 - [dekoratory-lru-cache-i-cache](Python/dekoratory-lru-cache-i-cache.md)
 - [catastrophic-cancellation-floating-point](Python/catastrophic-cancellation-floating-point.md)
 - [PyTest_Mockowanie](Python/PyTest_Mockowanie.md)
-- [deep-copy-vs-shallow-copy](Python/deep-copy-vs-shallow-copy.md)
 - [konstruktory-vs-literaly-dict-list-set](Python/konstruktory-vs-literaly-dict-list-set.md)
 - [krotki-vs-listy-pamiec-i-wydajnosc](Python/krotki-vs-listy-pamiec-i-wydajnosc.md)
 - [deprecated-typing-w-pythonie](Python/deprecated-typing-w-pythonie.md)
@@ -102,13 +130,11 @@
 - [biblioteki-pythona](Python/biblioteki-pythona.md)
 - [python-globalne-zmienne](Python/python-globalne-zmienne.md)
 - [iterable-class-in-python](Python/iterable-class-in-python.md)
-- [context-manager-w-pythonie](Python/context-manager-w-pythonie.md)
 - [typowanie-w-pythonie](Python/typowanie-w-pythonie.md)
 - [przestarzałość-bibliotek-w-pythonie](Python/przestarza%C5%82o%C5%9B%C4%87-bibliotek-w-pythonie.md)
 - [python-venv-in-devops](Python/python-venv-in-devops.md)
 - [biblioteka-functools-python](Python/biblioteka-functools-python.md)
 - [dodawanie-list-do-słownika](Python/dodawanie-list-do-s%C5%82ownika.md)
-- [wyjaśnienie-defaultdict-w-pythonie](Python/wyja%C5%9Bnienie-defaultdict-w-pythonie.md)
 - [yield-w-pythonie](Python/yield-w-pythonie.md)
 - [moduły-i-importy-w-pythonie](Python/modu%C5%82y-i-importy-w-pythonie.md)
 - [instalacja-zależności-w-pythonie](Python/instalacja-zale%C5%BCno%C5%9Bci-w-pythonie.md)
@@ -163,6 +189,7 @@
 
 ### Algo
 
+- [median-of-two-sorted-arrays](Python/Algo/median-of-two-sorted-arrays.md)
 - [top-10-algorytmow-informatyka](Python/Algo/top-10-algorytmow-informatyka.md)
 - [implementacje-binary-search](Python/Algo/implementacje-binary-search.md)
 - [programowanie-dynamiczne](Python/Algo/programowanie-dynamiczne.md)
@@ -184,6 +211,10 @@
 
 ## AI
 
+- [wzorce-projektowe-systemow-agentowych](AI/wzorce-projektowe-systemow-agentowych.md)
+- [orkiestrator-vs-planner-w-architekturze-wieloagentowej](AI/orkiestrator-vs-planner-w-architekturze-wieloagentowej.md)
+- [mcp-ai-engineer-interview](AI/mcp-ai-engineer-interview.md)
+- [obsluga-bledow-system-wieloagentowy](AI/obsluga-bledow-system-wieloagentowy.md)
 - [wektorowe-bazy-danych-proste-vs-enterprise](AI/wektorowe-bazy-danych-proste-vs-enterprise.md)
 - [pytania-rekrutacyjne-langchain-langgraph](AI/pytania-rekrutacyjne-langchain-langgraph.md)
 - [pytania-rekrutacyjne-rag](AI/pytania-rekrutacyjne-rag.md)
@@ -193,7 +224,6 @@
 - [ai-prompt-orchestration](AI/ai-prompt-orchestration.md)
 - [memory-management-i-session-handling](AI/memory-management-i-session-handling.md)
 - [zadanie-rekrutacyjne-system-wieloagentowy](AI/zadanie-rekrutacyjne-system-wieloagentowy.md)
-- [obsluga-bledow-system-wieloagentowy](AI/obsluga-bledow-system-wieloagentowy.md)
 - [agentic-workflows-multi-agent-orchestration](AI/agentic-workflows-multi-agent-orchestration.md)
 - [interrupts-langgraph](AI/interrupts-langgraph.md)
 - [persistence-sqlite-postgres-langgraph](AI/persistence-sqlite-postgres-langgraph.md)
@@ -210,7 +240,6 @@
 - [langchain-multi-agent-patterns](AI/langchain-multi-agent-patterns.md)
 - [create-agent-vs-react-agent](AI/create-agent-vs-react-agent.md)
 - [with_structured_output_vs_pydantic_parser](AI/with_structured_output_vs_pydantic_parser.md)
-- [wzorce-projektowe-systemow-agentowych](AI/wzorce-projektowe-systemow-agentowych.md)
 - [rag-tabele-czy-model-czy-preprocesor](AI/rag-tabele-czy-model-czy-preprocesor.md)
 - [repozytorium-datasetow-oraz-wersjonowanie-danych](AI/repozytorium-datasetow-oraz-wersjonowanie-danych.md)
 - [structured-output-z-llm](AI/structured-output-z-llm.md)
@@ -263,6 +292,38 @@
 - [lora-vs-stable-diffusion](AI/lora-vs-stable-diffusion.md)
 - [wyjaśnienie-kodu-tokenizera](AI/wyja%C5%9Bnienie-kodu-tokenizera.md)
 - [komunikacja-z-llm-w-langchain](AI/komunikacja-z-llm-w-langchain.md)
+
+## DevOps
+
+- [kubernetes-pytania-rekrutacyjne](DevOps/kubernetes-pytania-rekrutacyjne.md)
+- [dockerfile-klasyczny-i-multistage](DevOps/dockerfile-klasyczny-i-multistage.md)
+- [entrypoint-vs-cmd-w-docker](DevOps/entrypoint-vs-cmd-w-docker.md)
+- [docker_persistence_and_volumes](DevOps/docker_persistence_and_volumes.md)
+- [cloudwatch-synthetics-canary](DevOps/cloudwatch-synthetics-canary.md)
+- [czym-rozni-sie-aws-ecs-od-aws-fargate](DevOps/czym-rozni-sie-aws-ecs-od-aws-fargate.md)
+- [aws-lambda-logs](DevOps/aws-lambda-logs.md)
+- [docker-exec-vs-attach](DevOps/docker-exec-vs-attach.md)
+- [docker-permissions](DevOps/docker-permissions.md)
+- [playwright-docker-nonroot](DevOps/playwright-docker-nonroot.md)
+- [aws-cli](DevOps/aws-cli.md)
+- [aws-fargate](DevOps/aws-fargate.md)
+- [terraform-init-vs-apply](DevOps/terraform-init-vs-apply.md)
+- [vps-login-setup](DevOps/vps-login-setup.md)
+- [przegladanie_logow](DevOps/przegladanie_logow.md)
+
+## SystemDesign
+
+- [tls-pytania-rekrutacyjne](SystemDesign/tls-pytania-rekrutacyjne.md)
+- [mikroserwisy-pytania-rekrutacyjne](SystemDesign/mikroserwisy-pytania-rekrutacyjne.md)
+- [cap-theorem](SystemDesign/cap-theorem.md)
+- [sql-vs-nosql-criteria](SystemDesign/sql-vs-nosql-criteria.md)
+- [handling-api-request-failures](SystemDesign/handling-api-request-failures.md)
+- [rozpoznawanie-zlozonosci-logarytmicznej](SystemDesign/rozpoznawanie-zlozonosci-logarytmicznej.md)
+- [cykl-zycia-zadania-http-1-1](SystemDesign/cykl-zycia-zadania-http-1-1.md)
+- [cors](SystemDesign/cors.md)
+- [http-pytania-rekrutacyjne](SystemDesign/http-pytania-rekrutacyjne.md)
+- [proxy-z-limitem-latencji-300ms](SystemDesign/proxy-z-limitem-latencji-300ms.md)
+- [system-design-pytania-rekrutacyjne](SystemDesign/system-design-pytania-rekrutacyjne.md)
 
 ## Linux
 
@@ -389,6 +450,8 @@
 
 ## Java
 
+- [pytania-rekrutacyjne-kafka](Java/pytania-rekrutacyjne-kafka.md)
+- [kafka-streams](Java/kafka-streams.md)
 - [pytania-rekrutacyjne-jvm](Java/pytania-rekrutacyjne-jvm.md)
 - [pytania-rekrutacyjne-spring-3-0](Java/pytania-rekrutacyjne-spring-3-0.md)
 - [pytania-rekrutacyjne-java-senior](Java/pytania-rekrutacyjne-java-senior.md)

@@ -58,6 +58,17 @@ Proxy **nie może** używać klasycznego modelu „wątek per request", gdzie ka
 
 Dzięki temu tysiące współbieżnych wiadomości mogą być przetwarzane na kilku wątkach bez blokowania, a każda z nich wykorzystuje pełnię dostępnego budżetu.
 
+Ważne doprecyzowanie: **event loop nie oznacza, że cała aplikacja działa na jednym wątku**. Jeden event loop to zwykle jeden wątek obsługujący operacje I/O, ale produkcyjny serwer ma najczęściej **grupę event loopów** — np. 4, 8 albo 16 wątków, często dobranych do liczby rdzeni CPU. Każdy taki wątek obsługuje wiele połączeń naraz, ponieważ gdy request czeka na odpowiedź z downstream, wątek nie śpi zablokowany na `read()`/`recv()`, tylko wraca do obsługi innych socketów. System operacyjny informuje go później mechanizmem typu `epoll`/`kqueue`/IOCP, że dane są gotowe.
+
+To różni się od klasycznej puli wątków „jeden request = jeden aktywny wątek”. Pula wątków uruchomiona cały czas nadal ma problem, jeśli te wątki blokują się na I/O. Przy 10 000 jednoczesnych requestów i downstream latency 200 ms potrzebowalibyśmy ogromnej liczby wątków tylko po to, żeby większość z nich czekała. To zużywa pamięć na stosy, powoduje context switching i zwiększa tail latency. W modelu nieblokującym te same 10 000 requestów może być „w toku”, ale tylko te, które akurat mają gotowe dane albo wykonują krótki fragment CPU, zajmują wątek.
+
+To nie znaczy, że pula wątków jest zła. Jest potrzebna, ale do innych rzeczy:
+- **Event loop / I/O threads:** obsługa socketów, parsowanie prostych ramek, przekazywanie requestów dalej. Te wątki nie powinny wykonywać długich ani blokujących operacji.
+- **Worker pool:** cięższe CPU-bound operacje, np. kosztowna walidacja, kompresja, kryptografia, transformacja dużego payloadu.
+- **Osobna pula dla legacy blocking I/O:** jeśli musimy wywołać bibliotekę lub klienta, który blokuje wątek, izolujemy to w dedykowanej puli z twardym limitem i timeoutem.
+
+Praktyczny model to więc nie „jeden event loop zamiast puli wątków”, tylko **mała pula event loopów do nieblokującego I/O plus kontrolowane pule workerów do pracy, której nie da się wykonać nieblokująco**. Kluczowe jest to, żeby wątek I/O nigdy nie czekał bezczynnie na zewnętrzny system, bo wtedy tracimy największą zaletę tego modelu.
+
 ```
 ┌───────────────────────────────────────────────────────┐
 │               Proxy – model reaktywny                 │
@@ -71,7 +82,61 @@ Dzięki temu tysiące współbieżnych wiadomości mogą być przetwarzane na ki
 └───────────────────────────────────────────────────────┘
 ```
 
-### 2. Connection pooling i keep-alive do downstream
+### 2. Wybór języka programowania i runtime'u
+
+Wybór języka ma znaczenie, bo przy limicie 300 ms liczy się nie tylko średni czas wykonania kodu, ale też **stabilność p99/p999**, narzut runtime'u, model współbieżności, GC, koszt serializacji i dojrzałość bibliotek sieciowych.
+
+**Rust** jest bardzo dobrym wyborem dla takiego proxy, jeśli zespół potrafi go utrzymać:
+- Brak garbage collectora, więc odpadają pauzy GC wpływające na tail latency.
+- Bardzo niski narzut runtime'u i przewidywalne zużycie pamięci.
+- Dobre biblioteki async I/O, np. Tokio, Hyper, Axum.
+- Łatwiej utrzymać wysoką przepustowość przy małym koszcie CPU.
+
+Minusem Rust'a jest koszt developmentu: trudniejszy język, dłuższy onboarding, bardziej wymagające debugowanie problemów z lifetimes, ownership i async. W systemach latency-critical to może się opłacać, ale nie zawsze jest najlepszym wyborem organizacyjnie.
+
+**Go** jest często najbardziej pragmatycznym wyborem:
+- Goroutyny są tanie i dobrze pasują do dużej liczby jednoczesnych requestów.
+- Standardowa biblioteka HTTP jest dojrzała i szybka.
+- Deployment jest prosty.
+- GC istnieje, ale przy dobrze napisanym kodzie i umiarkowanych alokacjach zwykle da się utrzymać niskie pauzy.
+
+Go bywa dobrym kompromisem między wydajnością Rust'a a szybkością developmentu.
+
+**Java/Kotlin na Netty/WebFlux/Vert.x** też są sensownym wyborem:
+- Bardzo dojrzały ekosystem sieciowy.
+- Dobre narzędzia do observability, connection pooling, backpressure i tuningu.
+- ZGC/Shenandoah potrafią ograniczyć pauzy GC.
+
+Ryzykiem jest większy narzut pamięciowy i konieczność pilnowania alokacji, GC oraz blokujących operacji w reaktywnym pipeline.
+
+**Python może się nadawać, ale tylko w ograniczonych warunkach.** Nie jest pierwszym wyborem dla proxy z twardym limitem 300 ms przy dużej skali i wymaganiach p99/p999. Główne problemy:
+- Wyższy narzut wykonania kodu niż w Rust/Go/Java.
+- GIL ogranicza równoległe wykonywanie CPU-bound kodu w jednym procesie.
+- Większe ryzyko niestabilnej tail latency przez GC, alokacje i dynamiczny runtime.
+- Łatwo przypadkowo użyć blokującej biblioteki w async endpointcie i zablokować event loop.
+
+Python może być akceptowalny, jeśli:
+- Proxy wykonuje bardzo mało logiki CPU-bound.
+- Większość czasu i tak idzie na oczekiwanie na downstream.
+- Używamy prawdziwego async I/O, np. `asyncio`, `uvloop`, `aiohttp`/`httpx.AsyncClient`, FastAPI/Starlette uruchomione na Uvicornie.
+- Uruchamiamy wiele procesów workerów, np. przez Gunicorn/Uvicorn, żeby obejść ograniczenie jednego procesu i lepiej wykorzystać rdzenie.
+- Mamy twarde timeouty, connection pooling, limity współbieżności i bardzo dobrą obserwowalność.
+
+Przykładowo Python może wystarczyć dla umiarkowanego ruchu, prostego routingu i downstream latency rzędu 100-200 ms, gdzie lokalne przetwarzanie trwa kilka milisekund. Natomiast jeśli proxy musi obsługiwać bardzo duży RPS, ciężką walidację, transformację payloadów, kompresję, kryptografię albo SLA na p99 blisko 300 ms, Python staje się ryzykowny.
+
+Praktyczna rekomendacja:
+
+| Język / runtime | Ocena dla proxy 300 ms | Kiedy wybrać |
+|---|---|---|
+| Rust | Bardzo dobry technicznie | Gdy liczy się minimalna latencja, niski narzut i zespół zna Rust'a |
+| Go | Bardzo dobry pragmatycznie | Gdy potrzebna jest wysoka wydajność i szybki development |
+| Java/Kotlin + Netty/WebFlux | Dobry | Gdy zespół ma mocny JVM stack i umie stroić GC/reaktywność |
+| Node.js | Warunkowo dobry | Gdy logika jest głównie I/O-bound i nie blokujemy event loopa |
+| Python | Warunkowo akceptowalny | Gdy ruch jest umiarkowany, logika lekka, a async jest konsekwentnie użyty |
+
+Najważniejsza zasada: **język nie uratuje złej architektury, ale zły runtime może zjeść margines latencji**. Dla systemu z limitem 300 ms Python nie jest automatycznie wykluczony, ale wymaga ostrożności i zwykle ma mniejszy zapas bezpieczeństwa niż Rust, Go czy dobrze skonfigurowana JVM.
+
+### 3. Connection pooling i keep-alive do downstream
 
 Ustanawianie nowego połączenia TCP (a tym bardziej TLS handshake) przy każdej wiadomości pochłania od 30 do 150 ms. To niedopuszczalne w budżecie 300 ms.
 
@@ -80,7 +145,7 @@ Ustanawianie nowego połączenia TCP (a tym bardziej TLS handshake) przy każdej
 - **HTTP/2 multiplexing:** Jeśli downstream wspiera HTTP/2, wiele wiadomości przechodzi jednym połączeniem TCP, eliminując overhead ustanawiania nowych połączeń.
 - **Keep-alive i health check:** Regularne sprawdzanie zdrowia połączeń w puli, usuwanie martwych, utrzymywanie pre-warmed connections.
 
-### 3. Timeout propagation i deadline budgeting
+### 4. Timeout propagation i deadline budgeting
 
 Proxy musi aktywnie zarządzać limitem czasu na każdym etapie przetwarzania:
 
@@ -105,7 +170,7 @@ Response downstream = httpClient.send(parsed, Timeout.ofMillis(remainingMs - 30)
 // -30 ms rezerwujemy na serializację odpowiedzi
 ```
 
-### 4. Przeniesienie ciężkich operacji poza ścieżkę krytyczną (Off the hot path)
+### 5. Przeniesienie ciężkich operacji poza ścieżkę krytyczną (Off the hot path)
 
 Wszystko, co **nie jest wymagane** do udzielenia odpowiedzi w 300 ms, musi zostać zdjęte ze ścieżki krytycznej:
 
@@ -119,7 +184,7 @@ Wszystko, co **nie jest wymagane** do udzielenia odpowiedzi w 300 ms, musi zosta
 
 **Kluczowa zasada:** Ścieżka krytyczna powinna wykonywać **zero operacji dyskowych** i **zero synchronicznych wywołań** do usług pobocznych.
 
-### 5. Cache w pamięci (in-memory cache) dla enrichmentu
+### 6. Cache w pamięci (in-memory cache) dla enrichmentu
 
 Jeśli proxy musi wzbogacać wiadomości danymi referencyjnymi (np. mapowanie ID klienta na region), odpytywanie bazy lub innego serwisu na każdą wiadomość to samobójstwo budżetowe.
 
@@ -128,7 +193,7 @@ Jeśli proxy musi wzbogacać wiadomości danymi referencyjnymi (np. mapowanie ID
 - **Proaktywne odświeżanie** (refresh-ahead): cache odświeża dane w tle przed ich wygaśnięciem, dzięki czemu żaden request nie czeka na „cold miss".
 - **Rozmiar cache'a** należy ograniczyć (max entries) i monitorować hit ratio — cel: >95%.
 
-### 6. Backpressure i ochrona przed przeciążeniem
+### 7. Backpressure i ochrona przed przeciążeniem
 
 Gdy system docelowy zaczyna odpowiadać wolniej niż zwykle, proxy musi się **bronić**, a nie kumulować opóźnienia:
 
@@ -146,7 +211,7 @@ Gdy system docelowy zaczyna odpowiadać wolniej niż zwykle, proxy musi się **b
                                           └─────────────────────────────┘
 ```
 
-### 7. Optymalizacja GC i alokacji pamięci (JVM-specific)
+### 8. Optymalizacja GC i alokacji pamięci (JVM-specific)
 
 Na platformie JVM pauzy Garbage Collectora mogą dodawać od 5 ms do nawet 200 ms do tail latency. Techniki minimalizacji:
 
@@ -155,7 +220,7 @@ Na platformie JVM pauzy Garbage Collectora mogą dodawać od 5 ms do nawet 200 m
 - **Off-heap memory:** Przechowywanie dużych payloadów poza stertą JVM (np. Netty `DirectByteBuf`), co zmniejsza presję na GC.
 - **Unikanie autoboxingu:** Wykorzystanie primitive collections (Eclipse Collections, HPPC) zamiast `HashMap<Integer, Long>`.
 
-### 8. Monitoring i alertowanie na budżet latencji
+### 9. Monitoring i alertowanie na budżet latencji
 
 Nie da się utrzymać limitu 300 ms bez **ciągłego monitoringu**:
 

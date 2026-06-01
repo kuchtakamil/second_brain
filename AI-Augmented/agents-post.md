@@ -1,0 +1,6 @@
+Hej @Kamil Kuchta
+- możesz zerknąć tutaj np.: https://github.com/wshobson/agents/blob/main/docs/agents.md
+Ale z takimi gwiazdkami*:
+1) Repo z wieloma skillami / agentami to duży walec i łatwo zginąć w gąszczu możliwości - wg mnie lepiej brać po 1 toolu, dopasowywać do siebie (albo pisać od 0 inspirowany paroma rozwiązaniami z repo) i mieć coś z czym Ty się wygodnie czujesz i adresuje dokładnie Twoje potrzeby.
+2) Model mentalny, który można przyjąć w przypadku agentów i skilli, to jest że agent jest tym "kto wykonuje" daną czynność, a skill to jest "co jest wykonywane / kolejność działań / procedura". W związku z tym jeśli masz np. dokładną procedurę planowania UX/UI, to lepiej nadawałaby się na skill niż na agenta. Ale możesz jednocześnie mieć agenta, który np. odwzorowuje pewne cechy charakteru dobrego UX/UI Designera + ma zadeklarowane w frontmatter yaml'a, że może używać skilli do UX/UI Designu.
+3) Rozwinięcie frontmatter YAML'a agenta tutaj: https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields - użyteczne są takie rzeczy, że a) w agencie możesz uzupełnić skills, z których korzysta agent (i np. dać mu w instrukcji, że zawsze powołuje takie skille), b) w skillu / procedurze możesz wywoływać agentów do realizacji poszczególnych kroków. Oczywiście trzeba wtedy monitorować zużycie tokenów / limitów :)

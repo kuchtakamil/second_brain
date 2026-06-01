@@ -287,6 +287,16 @@ async def get_users(conn: asyncpg.Connection = Depends(get_db_connection)):
     return [dict(u) for u in users]
 ```
 
+**Co dokładnie dzieje się w tym kodzie?**
+
+`@asynccontextmanager` z modułu `contextlib` pozwala zapisać asynchroniczny menedżer kontekstu jako zwykłą funkcję z jednym `yield`. FastAPI używa tej funkcji jako `lifespan`, czyli kodu uruchamianego wokół całego życia aplikacji. Wszystko przed `yield` wykona się przy starcie aplikacji, dlatego tam tworzona jest pula połączeń przez `asyncpg.create_pool(...)`. Wszystko po `yield` wykona się przy zamykaniu aplikacji, dlatego tam zamykamy pulę przez `await app.state.pool.close()`.
+
+`app.state` to miejsce na współdzielony stan aplikacji. Nie jest to stan pojedynczego requestu, tylko obiekt dostępny tak długo, jak działa aplikacja. W przykładzie zapisujemy tam pulę jako `app.state.pool`, dzięki czemu nie trzeba tworzyć jej globalnie ani przekazywać ręcznie przez wiele warstw kodu. Endpointy i zależności mogą później korzystać z tej samej, raz utworzonej puli.
+
+`get_db_connection()` jest zależnością FastAPI. W środku używa `async with app.state.pool.acquire() as connection`, aby wypożyczyć jedno połączenie z puli. Instrukcja `yield connection` przekazuje to połączenie do endpointu. Gdy obsługa requestu się kończy, FastAPI wraca do zależności i kończy blok `async with`, a `asyncpg` automatycznie oddaje połączenie do puli. Dzięki temu endpoint nie musi pamiętać o ręcznym zwalnianiu zasobu.
+
+`Depends(get_db_connection)` mówi FastAPI: przed wywołaniem endpointu uruchom tę funkcję zależności, a jej wynik wstrzyknij jako argument `conn`. W praktyce endpoint `get_users()` dostaje gotowe połączenie `asyncpg.Connection`, wykonuje zapytanie i zwraca wynik. Taki układ rozdziela odpowiedzialności: `lifespan` zarządza życiem puli, `app.state` przechowuje pulę, zależność zarządza pojedynczym połączeniem dla requestu, a endpoint zajmuje się logiką biznesową.
+
 **11. Używaj zdarzeń `lifespan` do zarządzania zasobami aplikacji (Use the `lifespan` event for App-level Resources)**
 Unikaj korzystania z przestarzałych dekoratorów `@app.on_event("startup")` i `@app.on_event("shutdown")`. Zamiast nich używaj nowoczesnego menedżera kontekstu we FastAPI, zwanego `lifespan`. Zapewnia to jedno, scentralizowane miejsce do konfigurowania i usuwania zasobów na poziomie aplikacji (takich jak pule połączeń z bazą danych, klienty HTTP, czy połączenia z Redisem/Cache).
 
@@ -484,3 +494,39 @@ EXPOSE 8000
 # Określenie finałowego wywołania i zablokowania programu w terminalu, Gunicorn startujący procesy robocze przez bibliotekę pracującą (worker-class) Uvicorna
 CMD ["gunicorn", "main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
 ```
+
+---
+
+## Zalety i wady FastAPI
+
+FastAPI jest bardzo dobrym wyborem do budowy nowoczesnych API, szczególnie gdy aplikacja intensywnie korzysta z operacji wejścia/wyjścia: baz danych, zewnętrznych API, kolejek, cache albo usług mikroserwisowych. Nie jest jednak frameworkiem idealnym do każdego typu projektu. Największą wartość daje wtedy, gdy zespół rozumie async, typowanie i dobre praktyki zarządzania zasobami.
+
+**Zalety FastAPI:**
+
+* **Wysoka wydajność:** FastAPI działa na ASGI i zwykle używa Uvicorna, dzięki czemu bardzo dobrze obsługuje wiele równoczesnych żądań, szczególnie w aplikacjach I/O-bound.
+* **Naturalne wsparcie dla `async` / `await`:** Framework dobrze pasuje do asynchronicznych bibliotek, takich jak `httpx`, `asyncpg`, `redis.asyncio` czy asynchroniczne klienty usług zewnętrznych.
+* **Walidacja danych przez Pydantic:** Dane wejściowe i wyjściowe są walidowane automatycznie na podstawie modeli. Zmniejsza to ilość ręcznego kodu sprawdzającego i poprawia spójność API.
+* **Automatyczna dokumentacja OpenAPI:** FastAPI generuje dokumentację Swagger UI i ReDoc na podstawie endpointów, typów i modeli Pydantic. To bardzo ułatwia współpracę z frontendem, QA i innymi zespołami.
+* **Czytelne Dependency Injection:** `Depends` pozwala wygodnie wydzielać autoryzację, dostęp do bazy danych, konfigurację, walidację zasobów i inne powtarzalne elementy.
+* **Dobre wykorzystanie typowania Pythona:** Adnotacje typów nie są tylko dokumentacją dla programisty. FastAPI używa ich do walidacji, serializacji, generowania schematów i podpowiedzi w edytorze.
+* **Niewielka ilość kodu startowego:** Proste API można napisać bardzo szybko, bez dużej ilości konfiguracji i bez ciężkiej struktury narzucanej przez framework.
+* **Dobra integracja z ekosystemem Pythona:** FastAPI dobrze współpracuje z SQLAlchemy, Alembic, Celery, Redisem, bibliotekami ML, klientami HTTP, systemami kolejkowymi i narzędziami obserwowalności.
+
+**Wady FastAPI:**
+
+* **Async łatwo użyć źle:** Samo napisanie `async def` nie przyspiesza aplikacji. Jeżeli wewnątrz endpointu użyjesz blokującej biblioteki, możesz zablokować event loop i pogorszyć wydajność.
+* **Większa złożoność przy zasobach aplikacji:** Pule połączeń, klienci HTTP, cache, lifespan, `app.state` i zależności wymagają świadomego projektowania. W małych aplikacjach może to wyglądać na nadmiarową złożoność.
+* **Mniej gotowych elementów niż w Django:** FastAPI nie daje od razu panelu admina, ORM, systemu użytkowników, migracji i pełnej struktury aplikacji. Trzeba świadomie dobrać biblioteki.
+* **Łatwo stworzyć niespójną architekturę:** Framework jest elastyczny, ale nie narzuca mocnych granic. Bez ustalonych konwencji projekt może szybko rozrosnąć się w zbiór przypadkowych routerów, zależności i modeli.
+* **Pydantic ma własny koszt poznawczy:** Modele, walidatory, aliasy, konfiguracja serializacji i różnice między Pydantic v1 a v2 mogą być trudne dla początkujących.
+* **Nie rozwiązuje problemów CPU-bound:** FastAPI jest świetne do API i I/O, ale ciężkie obliczenia, przetwarzanie plików, modele ML lub operacje CPU-bound nadal trzeba przenosić do workerów, osobnych procesów albo dedykowanych usług.
+* **Testowanie zależności wymaga dyscypliny:** Dependency Injection ułatwia testy, ale przy większym projekcie trzeba pilnować override'ów, mocków, fixture'ów i izolacji zasobów.
+* **Produkcja wymaga dodatkowych decyzji:** Trzeba dobrać sposób uruchamiania, liczbę workerów, strategię logowania, monitoringu, migracji, konfiguracji środowiskowej, limitów timeoutów i obsługi błędów.
+
+**Kiedy FastAPI jest dobrym wyborem?**
+
+FastAPI najlepiej sprawdza się w projektach API-first: backendach dla aplikacji webowych i mobilnych, mikroserwisach, API do modeli ML, integracjach między systemami, usługach pracujących z wieloma zewnętrznymi endpointami oraz aplikacjach, w których ważne są walidacja danych, dobra dokumentacja i wydajna obsługa równoczesnych żądań.
+
+**Kiedy warto rozważyć coś innego?**
+
+Jeżeli projekt potrzebuje przede wszystkim gotowego panelu administracyjnego, rozbudowanego ORM, systemu użytkowników, formularzy i dużej ilości funkcji typowych dla klasycznej aplikacji webowej, Django może być bardziej praktycznym wyborem. Jeżeli aplikacja jest bardzo mała i ma tylko kilka prostych endpointów, Flask albo prosty serwer ASGI może być wystarczający.

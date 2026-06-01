@@ -52,6 +52,18 @@ print(issubclass(Dummy, SupportsClose))     # Zwróci: False
 
 Bez użycia dekoratora `@runtime_checkable`, powyższe zapytania zwróciłyby wyjątek `TypeError: Instance and class checks can only be used with @runtime_checkable protocols`.
 
+## Czy używanie `isinstance()` bez `@runtime_checkable` ma sens?
+
+Odpowiedź zależy od tego, w stosunku do jakich typów go używasz:
+
+1. **Względem standardowych klas i typów wbudowanych – Oczywiście, że tak (Nominal Typing):**
+   `isinstance()` to wbudowana funkcja Pythona stworzona do sprawdzania, czy obiekt należy do danej hierarchii klas (np. `isinstance(x, list)` czy `isinstance(obj, MojaKlasa)`). W tym przypadku weryfikowane jest klasyczne dziedziczenie (czy obiekt "jest z urodzenia" danego typu). Do tego `@runtime_checkable` nie jest w ogóle potrzebne, a wręcz nie ma zastosowania.
+
+2. **Względem interfejsów `typing.Protocol` – Nie, to w ogóle nie zadziała (Structural Typing):**
+   Protokół (`Protocol` bez dekoratora) jest zjawiskiem czysto statycznym, widocznym tylko dla narzędzi analizy statycznej takich jak `mypy`. Próba wywołania `isinstance(obiekt, TwojProtokol)` **zawsze zakończy się błędem programu** (`TypeError`), ponieważ środowisko uruchomieniowe Pythona domyślnie nie wie, jak sprawdzić strukturę obiektu pod kątem protokołu.
+
+**Podsumowując:** Zwykłego `isinstance()` używamy do weryfikacji hierarchii dziedziczenia obiektów (kim są). Z kolei `Protocol` wzbogacony o `@runtime_checkable` stosujemy wtedy, gdy chcemy za pomocą funkcji `isinstance()` sprawdzić, czy dowolny obiekt w czasie działania programu posiada wymagane metody i atrybuty – niezależnie od tego, z jakiej klasy się wywodzi (czyli sprawdzamy co potrafią zrobić, tzw. *duck typing*).
+
 ## Zobacz również
 - [Przykład użycia Protocol](python-protocol-przyklad.md)
 - [Python Protocol zamiast interfejsów](python-protocol-zamiast-interfejsów.md)

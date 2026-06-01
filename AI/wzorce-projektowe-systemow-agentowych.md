@@ -31,21 +31,47 @@ Zamiast obciążać zawiłymi pętlami jednego modelu, architektura jest rozdzie
 ### 4. Router / Supervisor (Przekierowanie i Nadzorowanie)
 Zarządca i Router zadania. Pojedynczy LLM interpretuje intencję wejściowej komendy, a następnie przekazuje wykonanie do jednego z innych mniejszych agentów i czeka na odpowiedź. Zwraca zagregowany wynik. Dobre rozwiązanie przy rozległych systemach w których chcemy izolować odpowiedzialność agentów (jeden robi tylko przegląd sieci, drugi obsługuje tylko bazę SQL w firmie).
 
-### 5. Koordynacja Multi-Agent System (Baza z frameworków takich jak AutoGen, CrewAI)
+### 5. Handoffs (Przekazywanie Kontroli)
+Wzorzec **Handoff** polega na tym, że jeden agent przekazuje kontrolę innemu agentowi, gdy rozpozna, że dalsza część zadania należy do innej specjalizacji. To nie jest tylko zwykłe wywołanie narzędzia, ale zmiana aktywnego wykonawcy w workflowie.
+
+Przykład: agent obsługi klienta prowadzi rozmowę z użytkownikiem, ale gdy temat przechodzi na faktury, przekazuje sprawę do agenta rozliczeń. Agent rozliczeń dostaje aktualny kontekst, kontynuuje pracę i może potem zakończyć proces albo przekazać kontrolę dalej.
+
+Typowy przebieg:
+- **Agent A** analizuje stan rozmowy lub zadania.
+- Uznaje, że potrzebny jest inny specjalista.
+- Zwraca decyzję o przekazaniu kontroli, np. `goto="billing_agent"` albo wywołanie narzędzia typu `transfer_to_billing`.
+- Orkiestrator lub graf workflowu aktualizuje stan i uruchamia **Agenta B**.
+- Agent B kontynuuje pracę na podstawie przekazanego kontekstu.
+
+Handoffs są przydatne, gdy:
+- system ma wielu wyspecjalizowanych agentów,
+- zadanie naturalnie przechodzi między domenami, np. support -> billing -> technical support,
+- nie chcemy, aby jeden centralny supervisor podejmował każdą mikrodecyzję,
+- agent najbliżej problemu najlepiej wie, komu przekazać dalszą pracę.
+
+Ryzyka tego wzorca:
+- agenci mogą przekazywać zadanie w pętli między sobą,
+- kontekst może zostać przekazany w zbyt dużej lub zbyt małej ilości,
+- trudniej śledzić odpowiedzialność za końcowy wynik,
+- potrzebne są limity liczby przekazań i jawne zasady, kiedy agent ma kończyć pracę zamiast przekazywać ją dalej.
+
+W praktyce handoff często implementuje się jako kontrolowany mechanizm w grafie, np. przez warunkowe przejście do innego węzła, obiekt `Command(goto="nazwa_agenta")` albo narzędzie transferujące zadanie do innego agenta.
+
+### 6. Koordynacja Multi-Agent System (Baza z frameworków takich jak AutoGen, CrewAI)
 Zamiast scentralizowanej orkiestracji, agenci konwersują ze sobą w cyklach z różnymi rolami (np. programista, code reviewer, business analyst) dążąc wspólnie do celu. System sam wymienia dialogi dopóki wszyscy nie zgodzą się z outputem. Konfiguracje orkiestracji obejmują:
 - **Hierarchię / Supervisor**: jeden model rozdziela i łączy wszystko.
 - **Sekwencyjność**: agent numer jeden przekazuje wyniki zadania bezpośrednio agentowi numer dwa i tak do końca jak na taśmie produkcyjnej.
 
-### 6. Reflection / Reflexion (Samo-ocena i poprawa)
+### 7. Reflection / Reflexion (Samo-ocena i poprawa)
 System zakłada użycie "krytyka". Agent po wygenerowaniu odpowiedzi w pierwszym podejściu wcale jej nie wysyła. Przekazuje ją do drugiego agenta (ewaluatora) lub w kolejnym wezwaniu sam jako nowe zadanie dostaje prośbę o krytyczną ocenę, poszukiwanie braku spójności czy obejścia założeń w swoim kodzie wyjściowym przed wypuszczeniem akcji. Pozytywnie wpływa to na jakość końcową a także stanowi filar polityk bezpieczeństwa (zobacz [LLM Guardrails](llm-guardrails.md)).
 
-### 7. Trwałość i Pamięć (State Management)
+### 8. Trwałość i Pamięć (State Management)
 Sam model nie posiada pamięci krótkotrwałej z wywołania na wywołanie z frameworku. Zamiast budować jeden ciągnący się tekst czatu (memory bloating), stan zapisywany jest jako zdefiniowane parametry "grafu" (np. biblioteka LangGraph). Stan w węzłach jest modyfikowany bezpośrednio bez przekazywania wszystkiego w wektorowej formie w obrębie każdego zadania co zwiększa wierność powtórzeń. W przypadku danych archiwalnych posługuje się najczęściej wzorcami RAG z bazy skalarnej.
 
-### 8. Node Factory Pattern (Fabryka Węzłów)
+### 9. Node Factory Pattern (Fabryka Węzłów)
 Wzorzec programistyczny szczególnie popularny w budowie systemów agentowych opartych na grafach (np. LangGraph). Zamiast statycznego, sztywnego deklarowania (hardcodowania) kodu zachowania każdego węzła, wykorzystuje się wzorzec **Factory**. Generuje on obiekty lub funkcje z odpowiednio wstrzykniętymi zależnościami – specjalistycznym promptem systemowym, określoną temperaturą czy podzbiorem udostępnionych narzędzi. Zwiększa to reużywalność kodu – z jednego szablonu węzła-agenta możemy dynamicznie instancjować wielu sub-agentów o różnych specjalizacjach w danym momencie (tzw. węzły parametryzowane).
 
-### 9. Fault Isolation / Fallback (Izolacja Błędów)
+### 10. Fault Isolation / Fallback (Izolacja Błędów)
 Krytyczny wzorzec chroniący stabilność przepływu (workflowu) agenta. Agenty oparte o LLM wprowadzają nowy poziom nieprzewidywalności: zwracają zły format (np. zepsuty JSON w wywołaniu funkcji), przekraczają limity przesyłu (rate-limits), ew. wzywają narzędzia, które rzucają błąd aplikacji.
 W izolacji błędów (Fault isolation) buduje się jawne ścieżki zastępcze:
 - **Fallback modelu**: w przypadku przekroczenia limitu na jednym API, przepływ (node) jest rutowany (przełączany) na inny, zapasowy model.

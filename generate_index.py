@@ -7,7 +7,7 @@ from collections import defaultdict
 # Ścieżka bazowa to ten sam katalog, w którym znajduje się skrypt
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = SCRIPT_DIR
-TARGET_FOLDERS = ['Python', 'AI', 'Linux', 'Java']
+TARGET_FOLDERS = ['Python', 'AI', 'DevOps', 'SystemDesign', 'Linux', 'Java']
 
 # Plik wyjściowy będzie w katalogu głównym (BASE_DIR)
 OUTPUT_FILE = os.path.join(BASE_DIR, 'index.md')

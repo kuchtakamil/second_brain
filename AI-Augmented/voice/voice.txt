@@ -1,0 +1,45 @@
+VOICE.md - daj swój głos LLM'owi
+
+Czytasz post na LinkedIn i po dwóch zdaniach wiesz, że pisał go bot.
+
+    "W dzisiejszym dynamicznym świecie AI...",
+
+    "to nie tylko narzędzie, to rewolucja",
+
+    "i tu zaczyna się magia".
+
+Każdy post wygląda tak samo. Każdy newsletter. Każda reklama.
+
+LLM uczą się z podobnych danych, więc bez instrukcji odruchowo wracają do tej samej średniej. Te same czasowniki, ten sam rytm.
+
+Rozwiązanie - jeden plik VOICE.md w projekcie (albo Skill w Claude Code, jeśli chcesz mieć go aktywnego we wszystkich projektach).
+
+Co wrzucasz do środka:
+
+→ Zakazane słownictwo - rewolucja, game changer, etc.
+
+→ Zakazane konstrukcje - przede wszystkim negatywne paralelizmy typu "to nie A. to B", które są największym znacznikiem AI w tekście
+
+→ Zasady tonu - krótkie akapity, kontrakcje, pierwsza osoba, konkretne liczby zamiast przymiotników
+
+→ Zasady rytmu - mieszaj długie zdania z krótkimi, bo AI pisze jak metronom (każde zdanie tej samej długości)
+
+→ Przykłady - kilka Twoich rzeczywistych fragmentów (dobre) zestawionych z typowym AI slopem (złe)
+
+→ Twoje słowa - frazy i zwroty, których realnie używasz na co dzień
+
+Dlatego przygotowałem taki szablon VOICE.md dla ciebie, byś mógł z tym zacząć pracować.
+
+Dla polskiego musisz wypracować swoją wersję. Inny słownik i inna składnia, tłumaczenie 1:1 nie zadziała - polski AI slop ma własne kalki ("solidna ewolucja", "robi różnicę", "to nie teoria, to praktyka").
+
+Procedura, która u mnie działa:
+
+1. Generujesz tekst z AI używając VOICE.md
+
+2. Czytasz i łapiesz fragment, który brzmi jak bot
+
+3. Mówisz Claude Code, który konkretnie fragment, i prosisz go, by zaktualizować VOICE.md - z wyjaśnieniem dlaczego brzmi sztucznie
+
+4. Po 10-20 iteracjach masz plik, który trzyma twój dokładny styl
+
+Zwykły  feedback, z tą różnicą, że jest zapisana w jednym miejscu, z którego AI korzysta przy każdym kolejnym tekście. Po kilku tygodniach AI dopasowuje się do Twojego stylu i przestajesz korygować to samo w każdej wiadomości.
