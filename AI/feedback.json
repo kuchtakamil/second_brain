@@ -1,0 +1,15 @@
+{
+  "source": "ai-prompt-orchestration.md",
+  "created": "2026-06-05T09:01:29.967Z",
+  "versioning": false,
+  "loop": true,
+  "done": false,
+  "comments": [
+    {
+      "id": 1,
+      "quote": "Parallelization",
+      "comment": "teraz napisz więcej o tym"
+    }
+  ],
+  "general": ""
+}

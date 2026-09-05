@@ -4,7 +4,7 @@
 BM25 (Best Matching 25) to algorytm wyszukiwania pełnotekstowego (lexical search), oceniający trafność dokumentów. Opiera się na częstotliwości słów (rozwinięcie TF-IDF). Analizuje statystykę wystąpień, nie znaczenie tekstu.
 
 ## Kiedy się stosuje
-- Tradycyjne silniki wyszukiwania (Elasticsearch, Lucene).
+- Tradycyjne silniki wyszukiwania (Elasticsearch, Lucene). W Elasticsearch BM25 jest **domyślnym** algorytmem oceny trafności (similarity) od wersji 5.0 — zastąpił klasyczne TF-IDF. Pod spodem korzysta z Lucene, gdzie BM25 jest domyślne od Lucene 6.0.
 - Wyszukiwanie ścisłych dopasowań (nazwy własne, kody, numery seryjne).
 - W systemach RAG jako element wyszukiwania hybrydowego (BM25 + wyszukiwanie wektorowe) dla uodpornienia systemu na literówki oraz wymuszania ścisłych dopasowań.
 

@@ -117,9 +117,139 @@ class State(TypedDict):
     metadata: Annotated[dict, merge_dicts]
 ```
 
+### Bardziej zaawansowane reducery
+
+**Złota zasada:** reducer musi być funkcją **czystą, szybką i deterministyczną**, bez efektów ubocznych. LangGraph woła go **synchronicznie przy każdej aktualizacji klucza**. To wyklucza wywołania I/O, sieci i LLM wewnątrz reducera.
+
+#### 1. Sliding window — ostatnie N elementów
+
+Zapobiega niekontrolowanemu rozrostowi stanu (np. historii wiadomości):
+
+```python
+def keep_last_n(n: int):
+    def reducer(existing: list, new: list) -> list:
+        return (existing + new)[-n:]
+    return reducer
+
+class State(TypedDict):
+    history: Annotated[list, keep_last_n(20)]   # maks. 20 ostatnich wpisów
+```
+
+#### 2. Deduplikacja po treści (Twój pomysł ✅)
+
+`add_messages` deduplikuje po **ID**. Częściej potrzebna jest deduplikacja po **treści** — np. gdy kilku agentów zbiera te same fakty z różnych źródeł:
+
+```python
+def merge_unique(existing: list[str], new: list[str]) -> list[str]:
+    """Konkatenacja z zachowaniem kolejności, ale bez duplikatów treści."""
+    seen = set(existing)
+    return existing + [x for x in new if not (x in seen or seen.add(x))]
+
+class State(TypedDict):
+    facts: Annotated[list[str], merge_unique]
+```
+
+Wariant semantyczny (dedup po podobieństwie embeddingów) jest możliwy, ale to **szara strefa** — liczenie embeddingów spowalnia reducer i bywa niedeterministyczne. Lepiej zrobić to w osobnym węźle.
+
+#### 3. Top-K po score — ranking
+
+Zostaw tylko K najlepszych kandydatów (retrieval, re-ranking):
+
+```python
+def top_k_by_score(k: int):
+    def reducer(existing: list[dict], new: list[dict]) -> list[dict]:
+        merged = existing + new
+        return sorted(merged, key=lambda d: d["score"], reverse=True)[:k]
+    return reducer
+
+class State(TypedDict):
+    candidates: Annotated[list[dict], top_k_by_score(5)]
+```
+
+#### 4. Last-write-wins po timestamp — rozstrzyganie konfliktu
+
+Gdy wielu agentów aktualizuje to samo pole, „wygrywa" najnowszy zapis:
+
+```python
+def latest_wins(existing: dict, new: dict) -> dict:
+    """Merge słowników; przy konflikcie klucza wybiera wpis z nowszym 'ts'."""
+    result = dict(existing)
+    for key, val in new.items():
+        if key not in result or val["ts"] >= result[key]["ts"]:
+            result[key] = val
+    return result
+
+class State(TypedDict):
+    # {"temperatura": {"value": 21, "ts": 1718000000}, ...}
+    sensors: Annotated[dict, latest_wins]
+```
+
+#### 5. Akumulator z limitem — liczniki i budżety
+
+```python
+def add_capped(cap: int):
+    def reducer(existing: int, new: int) -> int:
+        return min(existing + new, cap)
+    return reducer
+
+class State(TypedDict):
+    tokens_used: Annotated[int, add_capped(100_000)]
+```
+
+#### 6. Selektywne usuwanie — `RemoveMessage`
+
+`add_messages` obsługuje **usuwanie** konkretnych wiadomości ze stanu (przydatne przy czyszczeniu / trimowaniu historii). Zwracasz z węzła specjalny obiekt `RemoveMessage` z ID do usunięcia:
+
+```python
+from langchain_core.messages import RemoveMessage
+
+def trim_history(state: State):
+    """Usuwa wszystkie wiadomości poza ostatnimi dwiema."""
+    to_remove = state["messages"][:-2]
+    return {"messages": [RemoveMessage(id=m.id) for m in to_remove]}
+```
+
+To pokazuje, że reducer (`add_messages`) może implementować **całą algebrę operacji** — dodawanie, podmianę po ID i usuwanie — a nie tylko konkatenację.
+
+#### ⚠️ Anty-wzorzec: reducer „streszczający"
+
+Kuszący pomysł: reducer, który po dołączeniu nowych wiadomości od razu je streszcza, żeby skrócić kontekst. **Nie rób tego w reducerze.** Streszczanie wymaga wywołania LLM, a to łamie wszystkie założenia reducera:
+
+- **wolne** — blokuje każdą aktualizację stanu,
+- **niedeterministyczne** — ten sam stan da różne wyniki,
+- **zawodne i kosztowne** — błąd API wywali aktualizację stanu, każdy zapis to wydatek.
+
+Właściwe miejsce na streszczanie to **dedykowany węzeł** (wzorzec „summarization node" / memory management), który czyta historię, woła LLM i zwraca skrócony stan — np. w połączeniu z `RemoveMessage` (punkt 6) do podmiany starych wiadomości na jedno streszczenie. Reducer zostaw na tanią, czystą logikę łączenia.
+
+---
+
 ### Kluczowa zasada
 
-Jeśli klucz stanu jest zapisywany przez **więcej niż jeden równoległy węzeł**, **musi** mieć reducer. W przeciwnym razie: `InvalidUpdateError`.
+**Czym jest „klucz stanu"?** To pojedyncze pole w `TypedDict` opisującym stan grafu — czyli jedna pozycja po lewej stronie w definicji `State`. W naszym przykładzie stan ma dwa klucze: `messages` i `responses`:
+
+```python
+class State(TypedDict):
+    messages: Annotated[list, add_messages]      # ← klucz "messages"
+    responses: Annotated[list, operator.add]     # ← klucz "responses"
+```
+
+Każdy węzeł, zwracając słownik, **zapisuje do klucza o nazwie odpowiadającej kluczowi w tym słowniku**. Nazwa stringa w zwracanym dict-cie = nazwa klucza stanu:
+
+```python
+def therapist_node(state: State):
+    return {"responses": [...]}   # ← zapis do klucza "responses"
+
+def logical_node(state: State):
+    return {"responses": [...]}   # ← TEN SAM klucz "responses"
+```
+
+Tu właśnie jest sedno: oba węzły (`therapist` i `logical`) działają w tym samym superstepie **równolegle** i **oba zapisują do klucza `responses`**. To jest dokładnie sytuacja „klucz zapisywany przez więcej niż jeden równoległy węzeł".
+
+**Co się dzieje bez reducera?** LangGraph dostaje dwie aktualizacje tego samego klucza w jednym kroku i nie wie, którą zachować — zgłasza `InvalidUpdateError: At key 'responses': Can receive only one value per step`. Domyślne zachowanie (nadpisz wartość) jest niejednoznaczne przy dwóch równoczesnych zapisach.
+
+**Co robi reducer?** Adnotacja `Annotated[list, operator.add]` mówi LangGraphowi: „gdy do klucza `responses` przyjdzie wiele wartości naraz, połącz je przez `operator.add`" (konkatenacja list). Dzięki temu zamiast konfliktu powstaje `[therapist_resp, logical_resp]`.
+
+**Zasada w jednym zdaniu:** każdy klucz stanu, do którego w jednym superstepie może pisać więcej niż jeden węzeł, **musi** mieć reducer w `Annotated[...]`. Klucze zapisywane tylko przez jeden węzeł na raz (jak `messages` — pisze do niego tylko `synthesizer`) reducera nie wymagają, choć i tak warto go mieć (`add_messages`).
 
 ---
 

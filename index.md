@@ -2,6 +2,10 @@
 
 ## Python
 
+- [testing-cheatsheet](Python/testing-cheatsheet.md)
+- [biblioteki-ktore-warto-znac](Python/biblioteki-ktore-warto-znac.md)
+- [path-file-parent-fixtures](Python/path-file-parent-fixtures.md)
+- [patch-i-pytest-mark-asyncio-w-testach](Python/patch-i-pytest-mark-asyncio-w-testach.md)
 - [asyncio-cheatsheet](Python/asyncio-cheatsheet.md)
 - [konflikty-wersji-zaleznosci-i-pythonpath](Python/konflikty-wersji-zaleznosci-i-pythonpath.md)
 - [magiczne-metody-init-new-call-del](Python/magiczne-metody-init-new-call-del.md)
@@ -211,6 +215,20 @@
 
 ## AI
 
+- [architektura-agentowa-mesh-peer-to-peer](AI/architektura-agentowa-mesh-peer-to-peer.md)
+- [architektura-agentowa-50-serwerow-hub-and-spoke](AI/architektura-agentowa-50-serwerow-hub-and-spoke.md)
+- [metryki-accuracy-threshold-rag](AI/metryki-accuracy-threshold-rag.md)
+- [skalowanie-platformy-qa-pod-wieksze-obciazenie](AI/skalowanie-platformy-qa-pod-wieksze-obciazenie.md)
+- [human-in-the-loop-platforma-qa-weryfikacja](AI/human-in-the-loop-platforma-qa-weryfikacja.md)
+- [rozroznienie-bledu-od-zmiany-w-wygenerowanym-tescie](AI/rozroznienie-bledu-od-zmiany-w-wygenerowanym-tescie.md)
+- [rownolegle-wezly-fan-out-fan-in-langgraph](AI/rownolegle-wezly-fan-out-fan-in-langgraph.md)
+- [agentowa-platforma-ai-automatyzacja-qa-e2e](AI/agentowa-platforma-ai-automatyzacja-qa-e2e.md)
+- [ai-wykorzystanie-hateoas-rest-api](AI/ai-wykorzystanie-hateoas-rest-api.md)
+- [pytania-rekrutacyjne-ai-agents](AI/pytania-rekrutacyjne-ai-agents.md)
+- [testowanie-rag-techniki-warstwy-frameworki](AI/testowanie-rag-techniki-warstwy-frameworki.md)
+- [ai-prompt-orchestration](AI/ai-prompt-orchestration.md)
+- [ai-bm25](AI/ai-bm25.md)
+- [automatyzacja-testow-przygotowanie-rozmowa-ai-engineer](AI/automatyzacja-testow-przygotowanie-rozmowa-ai-engineer.md)
 - [wzorce-projektowe-systemow-agentowych](AI/wzorce-projektowe-systemow-agentowych.md)
 - [orkiestrator-vs-planner-w-architekturze-wieloagentowej](AI/orkiestrator-vs-planner-w-architekturze-wieloagentowej.md)
 - [mcp-ai-engineer-interview](AI/mcp-ai-engineer-interview.md)
@@ -218,10 +236,8 @@
 - [wektorowe-bazy-danych-proste-vs-enterprise](AI/wektorowe-bazy-danych-proste-vs-enterprise.md)
 - [pytania-rekrutacyjne-langchain-langgraph](AI/pytania-rekrutacyjne-langchain-langgraph.md)
 - [pytania-rekrutacyjne-rag](AI/pytania-rekrutacyjne-rag.md)
-- [ai-bm25](AI/ai-bm25.md)
 - [projektowanie-memory-management-oraz-session-handling-dla-agentow-ai](AI/projektowanie-memory-management-oraz-session-handling-dla-agentow-ai.md)
 - [gpt-token-latency-analytics-guardrails-fuzzing-testing](AI/gpt-token-latency-analytics-guardrails-fuzzing-testing.md)
-- [ai-prompt-orchestration](AI/ai-prompt-orchestration.md)
 - [memory-management-i-session-handling](AI/memory-management-i-session-handling.md)
 - [zadanie-rekrutacyjne-system-wieloagentowy](AI/zadanie-rekrutacyjne-system-wieloagentowy.md)
 - [agentic-workflows-multi-agent-orchestration](AI/agentic-workflows-multi-agent-orchestration.md)
@@ -230,7 +246,6 @@
 - [streaming-langgraph](AI/streaming-langgraph.md)
 - [multi-agent-supervisor-langgraph](AI/multi-agent-supervisor-langgraph.md)
 - [human-in-the-loop-interrupt-langgraph](AI/human-in-the-loop-interrupt-langgraph.md)
-- [rownolegle-wezly-fan-out-fan-in-langgraph](AI/rownolegle-wezly-fan-out-fan-in-langgraph.md)
 - [narzedzia-dla-agentow-tool-use-langgraph](AI/narzedzia-dla-agentow-tool-use-langgraph.md)
 - [pamiec-i-persistence-checkpointers-langgraph](AI/pamiec-i-persistence-checkpointers-langgraph.md)
 - [chat-history-langchain-langgraph](AI/chat-history-langchain-langgraph.md)
@@ -295,6 +310,7 @@
 
 ## DevOps
 
+- [aws-step-functions](DevOps/aws-step-functions.md)
 - [kubernetes-pytania-rekrutacyjne](DevOps/kubernetes-pytania-rekrutacyjne.md)
 - [dockerfile-klasyczny-i-multistage](DevOps/dockerfile-klasyczny-i-multistage.md)
 - [entrypoint-vs-cmd-w-docker](DevOps/entrypoint-vs-cmd-w-docker.md)
@@ -313,6 +329,14 @@
 
 ## SystemDesign
 
+- [kafka-vs-amazon-sqs](SystemDesign/kafka-vs-amazon-sqs.md)
+- [dead-letter-queue](SystemDesign/dead-letter-queue.md)
+- [http-vs-grpc](SystemDesign/http-vs-grpc.md)
+- [kafka-vs-kafka-streams](SystemDesign/kafka-vs-kafka-streams.md)
+- [frameworki-replikacji-i-elekcji](SystemDesign/frameworki-replikacji-i-elekcji.md)
+- [kafka-rabbitmq-activemq-redis-pubsub](SystemDesign/kafka-rabbitmq-activemq-redis-pubsub.md)
+- [degradacja-wydajnosci-bazy-danych](SystemDesign/degradacja-wydajnosci-bazy-danych.md)
+- [proxy-z-limitem-latencji-300ms](SystemDesign/proxy-z-limitem-latencji-300ms.md)
 - [tls-pytania-rekrutacyjne](SystemDesign/tls-pytania-rekrutacyjne.md)
 - [mikroserwisy-pytania-rekrutacyjne](SystemDesign/mikroserwisy-pytania-rekrutacyjne.md)
 - [cap-theorem](SystemDesign/cap-theorem.md)
@@ -322,11 +346,11 @@
 - [cykl-zycia-zadania-http-1-1](SystemDesign/cykl-zycia-zadania-http-1-1.md)
 - [cors](SystemDesign/cors.md)
 - [http-pytania-rekrutacyjne](SystemDesign/http-pytania-rekrutacyjne.md)
-- [proxy-z-limitem-latencji-300ms](SystemDesign/proxy-z-limitem-latencji-300ms.md)
 - [system-design-pytania-rekrutacyjne](SystemDesign/system-design-pytania-rekrutacyjne.md)
 
 ## Linux
 
+- [uruchamianie-appimage-zstd-bez-appimagelauncher](Linux/uruchamianie-appimage-zstd-bez-appimagelauncher.md)
 - [chciałbym-móc-zaznaczyć-kilka-wierszy-klawiszem-x-dowolnych-wierszy-np-wiersze-n](Linux/chcia%C5%82bym-m%C3%B3c-zaznaczy%C4%87-kilka-wierszy-klawiszem-x-dowolnych-wierszy-np-wiersze-n.md)
 - [nadal-mam-problem-zauważyłem-podejrzane-zachowanie-upower-i-orgfreedesktopupower](Linux/nadal-mam-problem-zauwa%C5%BCy%C5%82em-podejrzane-zachowanie-upower-i-orgfreedesktopupower.md)
 - [na-lenovo-legion-mam-zainstalowany-ubuntu-24043-chciałbym-sprawdzić-czy-są-zains](Linux/na-lenovo-legion-mam-zainstalowany-ubuntu-24043-chcia%C5%82bym-sprawdzi%C4%87-czy-s%C4%85-zains.md)
@@ -450,6 +474,8 @@
 
 ## Java
 
+- [testowanie-aplikacji-java-spring-kompleksowo](Java/testowanie-aplikacji-java-spring-kompleksowo.md)
+- [cucumber-framework](Java/cucumber-framework.md)
 - [pytania-rekrutacyjne-kafka](Java/pytania-rekrutacyjne-kafka.md)
 - [kafka-streams](Java/kafka-streams.md)
 - [pytania-rekrutacyjne-jvm](Java/pytania-rekrutacyjne-jvm.md)
